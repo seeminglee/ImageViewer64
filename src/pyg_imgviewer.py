@@ -8,21 +8,21 @@ Image Viewer using the pyglet framework
 Created by See-ming Lee on 2011-10-29.
 Copyright (c) 2011 See-ming Lee. All rights reserved.
 """
-from pyglet.event import EVENT_HANDLED, EventDispatcher
+from pyglet.event import EventDispatcher
+from pyglet.gl.gl import glColor3f, glVertex2f, GL_LINE_LOOP, glBegin, \
+	GL_ONE_MINUS_SRC_ALPHA
 from pyglet.sprite import Sprite
+from pyglet.text.document import UnformattedDocument
+from pyglet.text.layout import IncrementalTextLayout
 
 __author__ = 'See-ming Lee'
 __email__ = 'seeminglee@gmail.com'
 
 import pyglet
-from pyglet.window import Window
 from pyglet.window import key
 import os
-from PIL import Image
-import string
 import random
 import re
-import sys
 
 class ImageViewerError(Exception):
 	def __init__(self, msg):
@@ -45,11 +45,10 @@ class Loader(object):
 		try:
 			image_stream = open(fullname, 'rb')
 			image = pyglet.image.load(fullname, file=image_stream)
-			size = (image.width, image.height)
 		except IOError, message:
 			print 'Cannot load image:', fullname
 			raise ImageLoadFileIOError, message
-		return image, size
+		return image
 
 ### Model Helper --------------------------------------------------------------
 class FileType(object):
@@ -76,118 +75,142 @@ class SlideshowModel(EventDispatcher):
 	def __init__(self, folder):
 		"""initialize with name of the folder"""
 		try:
-			if not os.path.exists(folder):
+			self.folder = folder
+			if not os.path.exists(self.folder):
 				raise InvalidFolderError('Path entered does not exist.')
 			if os.path.isfile(self.folder):
 				self.folder = os.path.dirname(self.folder)
 			self.folder = os.path.abspath(self.folder)
 		except InvalidFolderError as e:
 			print "An exception occurred: message: ", e.msg
+			self.folder = None
 
-		self.allfiles = [f for f in os.listdir(self.path) if FileType.isnot_sys.match(f)]
-		self.imagefiles = [f for f in self.allfiles if FileType.is_image.match(f)]
-
-		self.files = self.imagefiles
+		self.all_files = [f for f in os.listdir(self.folder)
+		                 if FileType.isnot_sys.match(f)]
+		self.image_files = [f for f in self.all_files
+		                   if FileType.is_image.match(f)]
+		self.files = self.image_files
 
 		self.loop = True
 		self.random = False
 		
-		self.sort_method = "alpha"
-		self.sort_direction ="asc"
-		self.direction = "asc"
-		self.current_id = 0
+		self._current_id = 0
+		self._direction = "forward"
+		self._play_random = False
 
 		# used for tracking random files. in particular, allow
 		# to go back to files just previously viewed when playing in random
-		self.play_random = False
-		self.id_queue_past = []
-		self.id_queue = []
+		self._play_random = False
+		self._id_queue_past = []
+		self._id_queue = []
 
 		# animation properties
 		self.animation_rate = 2000 # in milliseconds
 
-		EventDispatcher.register_event_type("on_slideshow_model_update")
-
-
-
+	@property
 	def direction(self):
-		return self.direction
+		return self._direction
 
-	def filerandom(self):
-		return self.filerandom
+	@property
+	def play_random(self):
+		return self._play_random
 
+	@property
 	def current_id(self):
-		return  self.current_id
+		return  self._current_id
 
+	@property
 	def current_file(self):
-		return self.files.index(self.current_id)
+		if self.play_random:
+			filename = self.files.index(self.current_id)
+		else:
+			filename = self.files[self.current_id]
+		return os.path.join(self.folder, filename)
 
+	@property
 	def total_files(self):
 		return len(self.files)
 
+	@property
+	def current_image(self):
+		return Loader.load_image(self.current_file)
+
 	def next(self):
 		"""move to the next item"""
-		if not self.random:
+		if not self.play_random:
 			# normal
-			if self.sort_direction is "asc":
-				self.current_id += 1
+			if self.direction is "forward":
+				self._current_id += 1
 			else:
-				self.current_id -= 1
-			limit_id_range()
+				self._current_id -= 1
+			self.limit_id_range()
 
 		# random
 		else:
-			if not len(self.id_queue):
-				self.id_queue = range(len(self.files))
+			if not len(self._id_queue):
+				self._id_queue = range(len(self.files))
 			else:
-				self.current_id = random.randrange(len(self.id_queue))
-				self.id_queue.remote(self.current_id)
-				self.id_queue_past.append(self.current_id)
+				self._current_id = random.randrange(len(self._id_queue))
+				self._id_queue.remove(self.current_id)
+				self._id_queue_past.append(self.current_id)
 
-		dispatch_event("on_slideshow_model_update")
+		self._dispatch_update()
 
 	def prev(self):
 		"""move to the previous item"""
-		if not self.random:
+		if not self.play_random:
 			# normal
-			if self.sort_direction is "asc":
-				self.current_id -= 1
+			if self.direction is "forward":
+				self._current_id -= 1
 			else:
-				self.current_id += 1
-			limit_id_range()
+				self._current_id += 1
+			self.limit_id_range()
 
 		# random
 		else:
-			if not len(self.id_queue_past):
+			if not len(self._id_queue_past):
 				return # no more previous queue to go to, so don't do anything
 			else:
-				self.current_id = self.id_queue_past.pop()
-				self.id_queue.append(self.current_id)
+				self._current_id = self._id_queue_past.pop()
+				self._id_queue.append(self.current_id)
 
-		dispatch_event("on_slideshow_model_update")
-
-
+		self._dispatch_update()
 
 	def limit_id_range(self):
-		if self.current_id < 0:
-			self.current_id = len(self.files) - 1
-		elif len(self.files) < self.currentid:
-			self.current_id = 0
-			
+		if self._current_id < 0:
+			self._current_id = len(self.files) - 1
+		elif len(self.files) < self._current_id:
+			self._current_id = 0
 
-	
+			
+	def _dispatch_update(self):
+		self.dispatch_event(
+		    "on_slideshow_model_update",
+		    dict(
+			    current_id   = self.current_id,
+		        current_file = self.current_file,
+		        total_files  = self.total_files
+		    )
+
+		)
+
+SlideshowModel.register_event_type("on_slideshow_model_update")
+
+
+### Controllers ---------------------------------------------------------------
 
 class SlideshowController(EventDispatcher):
 	"""controller for slideshow interactions"""
 
-	def __init__(self, model, *args, **kwargs):
+	started = False
+
+	def __init__(self, model):
 		"""init control with model"""
 		self.model = model
-		self.started = False
 
-	def add_view(view):
+	def add_model_observer(self, view):
 		"""Made sure all the views will listen to any model updates"""
-		
+		self.model.push_handlers(view)
 
 		
 	def on_key_press(self, symbol, modifiers):
@@ -195,40 +218,74 @@ class SlideshowController(EventDispatcher):
 		if symbol in [key.RIGHT, key.LEFT, key.SPACE]:
 
 			if symbol == key.RIGHT:
-				self.item_next()
+				self.model.next()
 			elif symbol == key.LEFT:
-				self.item_prev()
+				self.model.prev()
 			elif symbol == key.SPACE:
 				self.toggle_show()
+		print "SS Controller: Event: on key press"
 
 	def toggle_show(self):
 		self.started = not self.started
-		
 
-	def item_next(self):
-		if self.model.next():
-			self._dispatch_model_update()
-			
-	def item_prev(self):
-		if self.model.prev():
-			self._dispatch_model_update()
-
-	def _dispatch_model_update(self):
-		self.dispatch_event(self,
-		    "on_slideshow_model_update",
-		    dict(
-			    current_id = self.model.current_id,
-		        current_file = self.model.total_files,
-		        total_files = self.model.total_files
-		    )
-
-		)
+### Helpers -------------------------------------------------------------------
+def draw_rect(x, y, width, height):
+	glBegin(GL_LINE_LOOP)
+	glVertex2f(x,  y)
+	glVertex2f(x + width, y)
+	glVertex2f(x + width, y + height)
+	glVertex2f(x, y + height)
+	glEnd()
 
 
 
+### User Interface ------------------------------------------------------------
+class Control(EventDispatcher):
+	"""An AbstractControl of the user interface"""
+	x = y = 0
+	width = height = 10
+
+	def __init__(self, parent, group=None, batch=None):
+		super(Control, self).__init__()
+		self.parent = parent
+		self.group = group
+		self.batch = batch
+
+	def hit_test(self, x, y):
+		return (self.x < x < self.x + self.width and
+		        self.y < y < self.y + self.height)
+
+	def capture_events(self):
+		self.parent.push_handlers(self)
+
+	def release_events(self):
+		self.parent.remove_handlers(self)
 
 
+class Button(Control):
+	charged = False
 
+	def draw(self):
+		if self.charged:
+			glColor3f(1, 0, 0)
+		draw_rect(self.x, self.y, self.width, self.height)
+		glColor3f(1, 1, 1)
+		self.draw_label()
+
+	def on_mouse_press(self, x, y, button, modifiers):
+		self.capture_events()
+		self.charged = True
+
+	def on_mouse_draw(self, x, y, dx, dy, buttons, modifiers):
+		self.charged = self.hit_test(x, y)
+
+	def on_mouse_release(self, x, y, button, modifiers):
+		self.release_events()
+		if self.hit_test(xy):
+			self.dispatch_event('on_button_press')
+		self.charged = False
+
+Button.register_event_type('on_button_press')
 
 
 class Rectangle(object):
@@ -239,150 +296,70 @@ class Rectangle(object):
 			('c4B', [30, 30, 50, 255] * 4)
 		)
 
+		
+class FileInfoWidget(Control):
+	"""Single line text display object for image meta data
+	when slide show is running."""
+	filename = ''
+	file_id = 0
+	file_total = 0
 
+	def draw(self):
+		draw_rect(self.x, self.y, self.width, self.height)
 
-class FileInfoWidget(object):
-	"""Meta information about the file"""
-
-	def __init__(self, filename, index, total, x, y, width, batch):
-		"""initialization. optionally add name of file"""
-		self.filename = filename
-		self.file_index = index
-		self.file_total = total
-
-		text = '[%d/%d]: %s' % (index, total, filename)
-
-		self.document = pyglet.text.document.UnformattedDocument(text)
-		self.document.set_style(0, len(self.document.text),
-			dict(color=(250, 250, 250, 255))
+	def on_slideshow_model_update(self, model):
+		self.filename   = model['current_file']
+		self.file_id    = model['current_id']
+		self.file_total = model['total_files']
+		self.text = '[%d/%d]: %s' % (
+			self.file_id, self.file_total, self.filename
 		)
-		font = self.document.get_font()
-		width  = width
-		height = font.ascent - font.descent
 
-		self.layout = pyglet.text.layout.IncrementalTextLayout(
-			self.document, width, height, batch=batch
+		self.document = UnformattedDocument(self.text)
+		self.document.set_style(
+			0, -1, dict(
+				font_name='Audimat Mono', font_size=13.0,
+			    color = (250, 250, 250, 255),
+			    background_color = (10, 10, 10, 255)
+			)
 		)
-		self.caret = pyglet.text.caret.Caret(self.layout)
+		self.layout = IncrementalTextLayout(
+			self.document, width=400, height=30,
+			batch=self.batch, group=self.group
+		)
 
-		self.layout.x = x
-		self.layout.y = y
-
-		# rectangle outline
-		pad = 5
-		self.rectangle = Rectangle(x - pad, y - pad,
-								   x + width + pad, y + height + pad, batch)
-
-	def hit_test(self, x, y):
-		return (0 < x - self.layout.x < self.layout.width and
-				0 < y - self.layout.y < self.layout.height)
-
-	def set_meta(self, filename='', index=None, total=None):
-		"""set the filename and other meta info
-		@filename name of the file, string
-		index     position of the file among files, integer
-		total     total number of files, integer"""
-		self.filename = filename
-		self.index = index
-		self.total = total
-		self.update()
-
-	def update(self):
-		pass
-		"""display current meta"""
-#		if self.visible:
-#			info = self.info()
-#			text = self.font.render(info, 1, self.bg_color, self.fg_color)
-#			textpos = text.get_rect(left=5, bottom=self.bg_height-3)
-#			self.image = pygame.Surface((text.get_width()+10, self.bg_height))
-#			self.image.fill(self.fg_color)
-#			self.image.blit(text, textpos)
-#			self.image.set_alpha(255)
-#			self.screen = pygame.display.get_surface()
-#			self.rect = pygame.Rect((0, 0), self.image.get_size())
-#			self.rect.bottomleft = (0, self.screen.get_height()+1)
-#		else:
-#			self.image.set_alpha(0)
-##
-##	def toggle_visibility(self):
-#		"""show / hide the meta info"""
-#		self.visible = not self.visible
-#
-	def set_meta(self, filename='', index=None, total=None):
-		"""set the filename and other meta info
-		@filename name of the file, string
-		index     position of the file among files, integer
-		total     total number of files, integer"""
-		self.filename = filename
-		self.index = index
-		self.total = total
-
-		self.filename = filename
-		self.file_index = index
-		self.file_total = total
-
-		self.document.text = '[%d/%d]: %s' % (index, total, filename)
-
-		self.update()
+	
 
 
-
-class Folder(object):
-	"""Keep track of the image folder we are tracking"""
-
-	def __init__(self, path=''):
-		"""Initialization"""
-		self.set_path(path)
-
-	def set_path(self, path=''):
-		if os.path.isfile(path):
-			path = os.path.dirname(path) # make sure it's a folder
-		self.path = os.path.abspath(path) # get the absolute path
-		self.allfiles = [f for f in os.listdir(self.path) if FileType.isnot_sys.match(f)]
-		self.imagefiles = [f for f in self.allfiles if FileType.is_image.match(f)]
-
-
-	def files(self):
-		"""Return the list of files contained in the folder"""
-		return self.abspath(self.allfiles)
-
-	def images(self):
-		"""Return all image files contained in folder"""
-		return self.abspath(self.imagefiles)
-
-	def jpgs(self):
-		"""Return list of jpegs"""
-		return self.abspath([f for f in self.allfiles if FileType.is_jpg.search(f)])
-
-	def gifs(self):
-		"""Return list of gifs only"""
-		return self.abspath([f for f in self.allfiles if FileType.is_gif.search(f)])
-
-	def pngs(self):
-		"""Return list of gifs only"""
-		return self.abspath([f for f in self.allfiles if FileType.is_png.search(f)])
-
-	def _abspath(self, files=None):
-		"""Return a list of files with absolute paths"""
-		if files is None:
-			files = self.allfiles
-		return [os.path.join(self.path, f) for f in files]
-
-
-
-
-class ImageView(pyglet.sprite.Sprite):
+class ImageView(Sprite):
 	"""Container of an image"""
-	def __init__(self, img, x, y, batch, group):
-		pyglet.sprite.Sprite.__init__(self, img, x, y, batch=batch, group=group)
-		self.image = img
-		self.x = x
-		self.y = y
-		self.batch = batch
-		self.group = group
+	x = y = 0
+	batch = None
+	group = None
+	usage = 'dynamic'
+	img = None
+	
+	def __init__(self, **kwargs):
+		for key in ('img', 'x', 'y', 'batch', 'group', 'usage'):
+			if key in kwargs:
+				setattr(self, key, kwargs[key])
+		super(ImageView, self).__init__(**kwargs)
 
-	def set_image(self, img):
-		self.image = img
+	def on_slideshow_model_change(self, model):
+		self.filename = model.filename
+		self.img = Loader.load_image(model.filename)
+		self.img = self.image.convert()
+
+	def on_resize(self, width, height):
+		fit_screen(width, height)
+
+	def fit_screen(self, dst_w, dst_h):
+		xratio = float(self._texture.width)  / float(dst_w)
+		yratio = float(self._texture.height) / float(dst_h)
+		maxratio = max(xratio, yratio)
+		self._texture.width  = int(self._texture.width  / maxratio + .5)
+		self._texture.height = int(self._texture.height / maxratio + .5)
+		
 
 
 
@@ -445,151 +422,51 @@ class Queue(pyglet.event.EventDispatcher):
 
 class AppWindow(pyglet.window.Window):
 	"""Main app window"""
+	
+	width = 640
+	height = 480
+	caption = "Image Viewer"
+	resizable = True
+
+
 	def __init__(self, folder_path):
-
-
-		platform = pyglet.window.get_platform()
-		screen  = platform.get_default_display().get_default_screen()
-		max_width  = screen.width
-		max_height = screen.height
 
 		# Batch
 		self.batch = pyglet.graphics.Batch()
 
 		# Group
 		self.bg_group = pyglet.graphics.OrderedGroup(0)
-		self.mg_group = pyglet.graphics.OrderedGroup(1)
 		self.fg_group = pyglet.graphics.OrderedGroup(2)
 
+		# Slideshow model
+		self.ss_model = SlideshowModel(folder_path)
 
-		# Folder Meta
-		self.folder = Folder(folder_path)
-		self.queue = Queue(self.folder.images())
+		# Slideshow: Views + Controls
+		self.image_view  = ImageView(
+			img   = self.ss_model.current_image,
+			batch = self.batch,
+			group = self.bg_group
+		)
+		self.file_info = FileInfoWidget(
+			self,
+			batch = self.batch,
+			group = self.fg_group
+		)
 
-		filename = self.queue.current_file()
-		index = self.queue.current_index
-		total = self.queue.total_files()
+		# Slideshow: Controller
+		self.ss_control = SlideshowController(
+			self.ss_model
+		)
+		self.ss_control.add_model_observer( self.image_view )
+		self.ss_control.add_model_observer( self.file_info )
+		self.push_handlers(self.ss_control)
 
-		# Widget: File Info
-		self.fileinfo = FileInfoWidget(filename, index, total, 5, 5,
-						   self.width, batch=self.batch)
-
-		self.text_cursor = self.get_system_mouse_cursor('text')
-
-#		self.focus = None
-#		self.set_focus(self.fileinfo)
-
-		# ImageView
-		self.imageview = ImageView(img=pyglet.image.load(filename), x=0, y=0,
-		                           batch=self.batch, group=self.mg_group)
-
-		self.queue.set_handler("on_image_update", self.imageview)
-
-		# Background
-		self.background = Rectangle(0, max_height,
-		                            max_width, max_height, self.batch)
-
-
-		# Sprites
-		self.sprites = [self.background, self.imageview, self.fileinfo]
-
-		self.ss_event_handler = SlideshowController()
-		self.push_handlers(self.ss_event_handler)
-
-		pyglet.window.Window.__init__(self, 640, 480, "Image Viewer", True)
-
-
-		
-
-	def slideshow_update(self):
-		"""update all the players"""
-		filename = self.queue.current_file()
-		id = self.queue.current_index
-		total = self.queue.total_files()
-		image = pyglet.image.load(filename)
-
-		self.imageview.set_image(image)
-		self.fileinfo.set_meta(filename, id, total)
-
-
-	# standard OS GUI
-	def on_resize(self, width, height):
-		super(Window, self).on_resize(width, height)
+		super(AppWindow, self).__init__()
 
 	def on_draw(self):
-		pyglet.gl.glClearColor(0, 0, 0, 1)
 		self.clear()
 		self.batch.draw()
-#
-#	def on_mouse_motion(self, x, y, dx, dy):
-#		if self.fileinfo.hit_test(x, y):
-#			self.set_mouse_cursor(self.text_cursor)
-#		else:
-#			self.set_mouse_cursor(None)
-#
-#	def on_mouse_press(self, x, y, button, modifiers):
-#		if self.fileinfo.hit_test(x, y):
-#			self.set_focus(widget)
-#		else:
-#			self.set_focus(None)
-#
-#		if self.focus:
-#			self.focus.caret.on_mouse_press(x, y, button, modifiers)
-#
-#	def on_mouse_drag(self, x, y, dx, dy, buttons, modifiers):
-#		if self.focus:
-#			self.focus.caret.on_mouse_drag(x, y, dx, dy, buttons, modifiers)
-#
-#	def on_text(self, text):
-#		if self.focus:
-#			self.focus.caret.on_text(text)
-#
-#	def on_text_motion(self, motion):
-#		if self.focus:
-#			self.focus.caret.on_text_motion(motion)
-#
-#	def on_text_motion_select(self, motion):
-#		if self.focus:
-#			self.focus.caret.on_text_motion_select(motion)
-#
-#
-#
-##	def on_key_press(self, symbol, modifiers):
-##		"""key press event: mostly listening for slideshow navigation"""
-##		slideshow_keys = [key.RIGHT, key.LEFT, key.SPACE]
-##
-##		if symbol in slideshow_keys:
-##
-##			print("WINDOW KEY PRESS")
-##
-##			if symbol == key.RIGHT:
-##				self.queue.next()
-##			elif symbol == key.LEFT:
-##				self.queue.prev()
-##			elif symbol == key.SPACE:
-##				pass
-##			#  start slideshow
-#
-#
-##
-##	def on_key_press(self, symbol, modifiers):
-##		if symbol == pyglet.window.key.ESCAPE:
-##			pyglet.app.exit()
-##
-###		return pyglet.event.EVENT_HANDLED
-##
-##
-#
-#	def set_focus(self, focus):
-#		if self.focus:
-#			self.focus.caret.visible = False
-#			self.focus.caret.mark = self.focus.caret.position = 0
-#
-#		self.focus = focus
-#		if self.focus:
-#			self.focus.caret.visible = True
-#			self.focus.caret.mark = 0
-#			self.focus.caret.position = len(self.focus.document.text)
+
 
 
 window = AppWindow('/Volumes/Proteus/Pictures/test/')
