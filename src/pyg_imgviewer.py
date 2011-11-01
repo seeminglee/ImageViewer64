@@ -1,7 +1,9 @@
 #!/usr/bin/env pythonw
 # encoding: utf-8
 """
-pyg_imgviewer
+gldraw: used to test gl funcitonality during devel
+Using example here as blueprint:
+http://www.bryceboe.com/2011/10/08/moving-images-in-3d-space-with-pyglet/
 
 Image Viewer using the pyglet framework
 
@@ -9,11 +11,11 @@ Created by See-ming Lee on 2011-10-29.
 Copyright (c) 2011 See-ming Lee. All rights reserved.
 """
 from pyglet.event import EventDispatcher
-from pyglet.gl.gl import glColor3f, glVertex2f, GL_LINE_LOOP, glBegin, \
-	GL_ONE_MINUS_SRC_ALPHA
+from pyglet.gl import gl
 from pyglet.sprite import Sprite
 from pyglet.text.document import UnformattedDocument
 from pyglet.text.layout import IncrementalTextLayout
+import sys
 
 __author__ = 'See-ming Lee'
 __email__ = 'seeminglee@gmail.com'
@@ -45,6 +47,17 @@ class Loader(object):
 		try:
 			image_stream = open(fullname, 'rb')
 			image = pyglet.image.load(fullname, file=image_stream)
+#			# below additional / experimental
+#			texture = image.get_texture()
+#			gl.glEnable(texture.target, texture.id)
+#			gl.glTexImage2D(gl.GL_TEXTURE_2D, 0, gl.GL_RGB,
+#			                image.width, image.height,
+#			                0, gl.GL_RGBA, gl.GL_UNSIGNED_BYTE,
+#			                image.get_image_data().get_data('RGBA',
+#			                image.width * 4))
+#			rect_w = float(image.width) / image.height
+#			rect_h = 1
+#
 		except IOError, message:
 			print 'Cannot load image:', fullname
 			raise ImageLoadFileIOError, message
@@ -177,11 +190,8 @@ class SlideshowModel(EventDispatcher):
 		self._dispatch_update()
 
 	def limit_id_range(self):
-		if self._current_id < 0:
-			self._current_id = len(self.files) - 1
-		elif len(self.files) < self._current_id:
-			self._current_id = 0
-
+		self._current_id = (self._current_id + len(self.files)) \
+				% len(self.files)
 			
 	def _dispatch_update(self):
 		self.dispatch_event(
@@ -230,12 +240,12 @@ class SlideshowController(EventDispatcher):
 
 ### Helpers -------------------------------------------------------------------
 def draw_rect(x, y, width, height):
-	glBegin(GL_LINE_LOOP)
-	glVertex2f(x,  y)
-	glVertex2f(x + width, y)
-	glVertex2f(x + width, y + height)
-	glVertex2f(x, y + height)
-	glEnd()
+	gl.glBegin(gl.GL_QUADS)
+	gl.glVertex2f(x,  y)
+	gl.glVertex2f(x + width, y)
+	gl.glVertex2f(x + width, y + height)
+	gl.glVertex2f(x, y + height)
+	gl.glEnd()
 
 
 
@@ -267,9 +277,9 @@ class Button(Control):
 
 	def draw(self):
 		if self.charged:
-			glColor3f(1, 0, 0)
+			gl.glColor3f(1, 0, 0)
 		draw_rect(self.x, self.y, self.width, self.height)
-		glColor3f(1, 1, 1)
+		gl.glColor3f(1, 1, 1)
 		self.draw_label()
 
 	def on_mouse_press(self, x, y, button, modifiers):
@@ -303,133 +313,121 @@ class FileInfoWidget(Control):
 	filename = ''
 	file_id = 0
 	file_total = 0
+	rect_w = 640
+	rect_h = 30
+	x = 0
+	y = 0
 
 	def draw(self):
-		draw_rect(self.x, self.y, self.width, self.height)
+		draw_rect(self.x, self.y, self.rect_w, self.rect_h)
 
 	def on_slideshow_model_update(self, model):
 		self.filename   = model['current_file']
 		self.file_id    = model['current_id']
 		self.file_total = model['total_files']
-		self.text = '[%d/%d]: %s' % (
-			self.file_id, self.file_total, self.filename
+		
+		# show dipslay as 1-based instead of 0 for huamn readability
+		self.text = '[%d/%d]:\n%s' % (
+			self.file_id+1, self.file_total, self.filename
 		)
 
 		self.document = UnformattedDocument(self.text)
 		self.document.set_style(
 			0, -1, dict(
-				font_name='Audimat Mono', font_size=13.0,
+				font_name='Gill Sans Light', font_size=9.0,
 			    color = (250, 250, 250, 255),
-			    background_color = (10, 10, 10, 255)
+			    background_color = (0, 0, 0, 255)
 			)
 		)
 		self.layout = IncrementalTextLayout(
-			self.document, width=400, height=30,
-			batch=self.batch, group=self.group
+			self.document, width=self.rect_w, height=self.rect_h,
+			multiline=True, batch=self.batch, group=self.group
 		)
 
+
+
 	
 
 
-class ImageView(Sprite):
+class ImageView(object):
 	"""Container of an image"""
-	x = y = 0
-	batch = None
-	group = None
-	usage = 'dynamic'
-	img = None
-	
-	def __init__(self, **kwargs):
-		for key in ('img', 'x', 'y', 'batch', 'group', 'usage'):
+
+	def __init__(self, parent, **kwargs):
+		self.parent = parent
+		self.x = 0
+		self.y = 0
+		self.batch = None
+		self.group = None
+		self.sprite = None
+		self.image = None
+		self.texture = None
+
+		for key in ('img', 'x', 'y', 'batch', 'group', 'usage', 'folder'):
 			if key in kwargs:
 				setattr(self, key, kwargs[key])
-		super(ImageView, self).__init__(**kwargs)
 
-	def on_slideshow_model_change(self, model):
-		self.filename = model.filename
-		self.img = Loader.load_image(model.filename)
-		self.img = self.image.convert()
+
+	def on_slideshow_model_update(self, model):
+		self.filename = model['current_file']
+		self.image, self.texture = self.load_texture(self.filename)
+
+		self.sprite = Sprite(img=self.image, batch=self.batch,
+		                     group=self.group)
+		self.fit(self.parent.width, self.parent.height)
+
+
+	@classmethod
+	def load_texture(cls, file):
+		try:
+			image = pyglet.image.load(file)
+		except pyglet.image.codecs.dds.DDSException:
+			print ("%s is not a valid image file." % file)
+			raise ImageViewerError
+
+		texture = image.get_texture()
+
+		return image, texture
+
+	
+
 
 	def on_resize(self, width, height):
-		fit_screen(width, height)
+		self.fit(width, height)
 
-	def fit_screen(self, dst_w, dst_h):
-		xratio = float(self._texture.width)  / float(dst_w)
-		yratio = float(self._texture.height) / float(dst_h)
-		maxratio = max(xratio, yratio)
-		self._texture.width  = int(self._texture.width  / maxratio + .5)
-		self._texture.height = int(self._texture.height / maxratio + .5)
+	def fit(self, dst_w, dst_h):
+		print ('image_view fit')
 		
+		if self.sprite is not None:
+			rect_w = self.image.width
+			rect_h = self.image.height
+			xratio = float(rect_w) / float(dst_w)
+			yratio = float(rect_h) / float(dst_h)
+			maxratio = max(xratio, yratio)
+			rect_w = int(rect_w / maxratio + 1)
+			rect_h = int(rect_h / maxratio + 1)
+			scale_x = float(rect_w) / float(self.image.width)
+			scale_y = float(rect_h) / float(self.image.height)
+			self.sprite.scale = scale_x
 
 
-
-class Queue(pyglet.event.EventDispatcher):
-	"""File queue for slide show"""
-	def __init__(self, files=None):
-		"""initialization.
-		@param  files   list of files to be put into queue"""
-		self.current_index = 0
-		self.files = []
-		self.addfiles(files)
-
-	def addfiles(self, files=None):
-		if files is not None:
-			self.files.extend(files)
-
-	def next(self):
-		"""Iterate to next file without returning the file"""
-		self.current_index += 1
-		if self.current_index >= len(self.files):
-			self.current_index = 0
-
-	def prev(self):
-		"""Iterate to previous file"""
-		self.current_index -= 1
-		if self.current_index < 0:
-			self.current_index = len(self.files) - 1
-
-
-	def current_file(self):
-		"""return the currently selected file"""
-		return self.files[self.current_index]
-
-	def total_files(self):
-		"""return the count total of all files"""
-		return len(self.files)
-
-	def current_image(self):
-		"""return the currently selected image"""
-		image = pyglet.image.load(self.current_file())
-		return image
-
-	# events
-	def image_next(self):
-		self.next()
-		self.dispatch_event("on_image_next")
-
-	def image_prev(self):
-		self.prev()
-		self.dispatch_event("on_image_prev")
-
-	def image_update(self, image, filename, id, total):
-		filename = self.current_file()
-		image = pyglet.image.load(filename)
-		id = self.current_index
-		total = self.total_files()
-		self.dispatch_event("on_image_update", image, filename, id, total)
-
-
+	def draw(self):
+		print("ImageView.draw()")
+		if self.sprite is not None:
+			self.sprite.draw()
+		
 
 class AppWindow(pyglet.window.Window):
 	"""Main app window"""
-	
-	width = 640
-	height = 480
-	caption = "Image Viewer"
-	resizable = True
 
+	def __init__(self, folder, width=640, height=480, caption="Image Viewer",
+	             resizable= True, *args, **kwargs):
 
-	def __init__(self, folder_path):
+		self.folder = folder
+		self.width  = width
+		self.height = height
+		
+		super(AppWindow, self).__init__(caption=caption, resizable=resizable,
+		                                *args, **kwargs)
 
 		# Batch
 		self.batch = pyglet.graphics.Batch()
@@ -439,13 +437,15 @@ class AppWindow(pyglet.window.Window):
 		self.fg_group = pyglet.graphics.OrderedGroup(2)
 
 		# Slideshow model
-		self.ss_model = SlideshowModel(folder_path)
+		self.ss_model = SlideshowModel(folder)
 
 		# Slideshow: Views + Controls
 		self.image_view  = ImageView(
-			img   = self.ss_model.current_image,
-			batch = self.batch,
-			group = self.bg_group
+			self,
+			img    = self.ss_model.current_image,
+			batch  = self.batch,
+			group  = self.bg_group,
+		    folder = folder
 		)
 		self.file_info = FileInfoWidget(
 			self,
@@ -457,17 +457,30 @@ class AppWindow(pyglet.window.Window):
 		self.ss_control = SlideshowController(
 			self.ss_model
 		)
+
+		# EVENTS: slideshow events
 		self.ss_control.add_model_observer( self.image_view )
 		self.ss_control.add_model_observer( self.file_info )
+		# EVENTS: window UI events
 		self.push_handlers(self.ss_control)
+		self.push_handlers(self.image_view)
+#
 
-		super(AppWindow, self).__init__()
+	def update(self, _):
+		self.on_draw()
+		self.clock += .01
 
 	def on_draw(self):
-		self.clear()
-		self.batch.draw()
+		self.image_view.draw()
+		self.file_info.draw()
 
 
+if __name__ == '__main__':
+	window = AppWindow(
+		folder='/Volumes/Proteus/Pictures/test/',
+		caption='GL Draw',
+		)
+	pyglet.app.run()
 
-window = AppWindow('/Volumes/Proteus/Pictures/test/')
-pyglet.app.run()
+	pass
+
