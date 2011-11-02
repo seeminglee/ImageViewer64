@@ -139,10 +139,30 @@ class ImageLayer(cocos.layer.base_layers.Layer):
 	"""Container of an image"""
 
 	def __init__(self):
-		self.sprite = None # cannot initialize sprite until an image is available
 		super(ImageLayer, self).__init__()
+		self.texture = None
+		self.sprite = None
+		print("ImageLayer.init()")
+
+	def on_slideshow_model_update(self, model):
+		self.texture = self.load_image(model.current_file)
+		print("ImageLayer .on_model_update")
+		print(model.current_file)
 
 
+	def create_image(self):
+		print("ImageLayer.create_image()")
+		winsize = director.get_window_size()
+		if winsize is not None:
+			scale_x = scale_y = Util_Scaler.scaleToSize(
+				self.texture.width, self.texture.height,
+				winsize.width, winsize.height,
+			    FitType.ScaleFitAspectFit
+			)
+		self.sprite = cocos.sprite.Sprite(
+			self.texture, position=(0,0), rotation=0, scale=scale_x,
+		    opacity=255, color=(255, 255, 255), anchor=(0,0)
+		)
 
 
 #	def __init__(self, parent, **kwargs):
@@ -173,18 +193,16 @@ class ImageLayer(cocos.layer.base_layers.Layer):
 #		self.fit(self.parent.width, self.parent.height)
 #
 #
-#	@classmethod
-#	def load_texture(cls, file):
-#		try:
-#			image = pyglet.image.load(file)
-#		except pyglet.image.codecs.dds.DDSException:
-#			print ("%s is not a valid image file." % file)
-#			raise ImageViewerError
-#
-#		texture = image.get_texture()
-#
-#		return image, texture
-#
+	@classmethod
+	def load_texture(cls, file):
+		try:
+			image = pyglet.image.load(file)
+		except pyglet.image.codecs.dds.DDSException:
+			print ("%s is not a valid image file." % file)
+			raise ImageViewerError
+
+		return image
+
 #
 #	def on_resize(self, width, height):
 #		self.background.resize(width, height)
@@ -312,6 +330,7 @@ class FileInfoLayer(cocos.layer.base_layers.Layer):
 		)
 
 	def on_slideshow_model_update(self, model):
+		print("FileInfoLayer.ON_SLIDESOW_MODEL_UPDATE")
 		self.model = model
 		self.label.text = self.text
 		print("FileInfoLayer: %s" % self.text)
@@ -407,7 +426,7 @@ class SlideshowModel(event.EventDispatcher):
 	def play(self):
 		"""Schedule and start auto-advance to next slide"""
 		print("play args:")
-		print(args)
+#		print(args)
 		pyglet.clock.schedule_once( self.play_next,
 									self._autonext_interval_msec)
 		# instead of using interval schedules, it just callls the same
@@ -442,7 +461,7 @@ class SlideshowModel(event.EventDispatcher):
 		msec = min(10000, msec) # at most 10s
 		self.stop()
 		self._autonext_interval_msec = msec
-		self.start()
+		self.play()
 
 
 	def next(self):
@@ -491,6 +510,9 @@ class SlideshowModel(event.EventDispatcher):
 				% len(self.files)
 
 	def _dispatch_update(self):
+		print ("SS_MODEL... [%d/%d] file=%s") % (self.current_id,
+		                                         self.total_files,
+												 self.current_file)
 		self.dispatch_event(
 		    "on_slideshow_model_update",
 		    dict(
@@ -563,7 +585,10 @@ if __name__ == "__main__":
 		width=800, height=600, caption="Image Viewer", fullscreen = False
 	)
 
-	ss_model   = SlideshowModel('/Volumes/Proteus/virtualbox/_share/bru')
+	#ss_model   = SlideshowModel('/Volumes/Proteus/virtualbox/_share/bru')
+	ss_model   = SlideshowModel('/Mon_slideshow_model_update
+	#ss_model   = SlideshowModel('/Volumes/Proteus/virtualbox/_share/bru')
+
 	ss_control = SlideshowController(ss_model)
 
 	scene = cocos.scene.Scene()
