@@ -257,6 +257,60 @@ class SlideshowView(cocos.scene.Scene):
 	manually all allows the scene to play with them automatically.."""
 
 
+class EnumUtil(object):
+	"""Utility for enum'ing constants.
+	Usage:
+			Numbers = enum('ZERO', 'ONE', 'TWO')
+			Numbers.ZERO --> 0
+			Numbers.ONE  --> 1
+	Source:
+	http://stackoverflow.com/questions/36932/whats-the-best-way-to-implement-an-enum-in-python
+	"""
+	@staticmethod
+	def enum(*sequential, **named):
+		enums = dict(zip(sequential, range(len(sequential))), **named)
+		return type('Enum', (), enums)
+
+
+
+class Util_Scaler(object):
+	"""Utility to keep aspect ratio the same before and after scaling using
+	three different algorithms."""
+
+	FitType = EnumUtil.enum('ScaleFitFull',
+	                        'ScaleFitAspectFit',
+	                        'ScaleFitAspectFill')
+
+	@staticmethod
+	def scaleToSize(orig_w, orig_h, target_w, target_h,
+	                fit_type=FitType.ScaleFitFull):
+		orig_w = float(orig_w)
+		orig_h = float(orig_h)
+		target_w = float(target_w)
+		target_h = float(target_h)
+
+		target_aspect = target_w / target_h
+		orig_aspect = orig_w / orig_h
+
+		if fit_type == FitType.ScaleFitFull:
+			x_scale = target_w / origin_w
+			y_scale = target_h / origin_h
+
+		elif fit_type == FitType.ScaleFitAspectFit:
+			if target_aspect > orig_aspect:
+				x_scale = y_scale = target_h / orig_h
+			else:
+				y_scale = x_scale = target_w / orig_w
+
+		elif fit_type == FitType.ScaleFitAspectFill:
+			if target_aspect > orig_aspect:
+				x_scale = y_scale = target_w / orig_w
+			else:
+				y_scale = x_scale = target_h / orig_h
+
+		return x_scale, y_scale
+
+
 class BackgroundLayer(cocos.layer.ColorLayer):
 	"""The absolute bottomest window."""
 	is_event_handler = True
