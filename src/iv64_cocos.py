@@ -122,18 +122,7 @@ class BackgroundLayer(cocos.layer.ColorLayer):
 	def __init__(self, r, g, b, a, width=100, height=100):
 		super(BackgroundLayer, self).__init__(r, g, b, a, width, height)
 
-#	def on_resize(self, win_width, win_ehgith):
-#		scale = Util_Scaler.scaleToSize(
-#			self.width, self.height,
-#		    win_width, win_height,
-#		    FitType.ScaleFitAspectFill
-#		)
-#
-#	def draw(self):
-#		gl.glPushMatrix()
-#		self.transform()
-#		# ... draw ..
-#		gl.glPopMatrix()
+
 
 class ImageLayer(cocos.layer.base_layers.Layer):
 	"""Container of an image"""
@@ -164,35 +153,12 @@ class ImageLayer(cocos.layer.base_layers.Layer):
 		    opacity=255, color=(255, 255, 255), anchor=(0,0)
 		)
 
-
-#	def __init__(self, parent, **kwargs):
-#		self.parent = parent
-#		self.x = 0
-#		self.y = 0
-#		self.batch = pyglet.graphics.Batch()
-#		self.group = None
-#		self.sprite = None
-#		self.image = None
-#		self.texture = None
-#
-#		for key in ('img', 'x', 'y', 'batch', 'group', 'usage', 'folder'):
-#			if key in kwargs:
-#				setattr(self, key, kwargs[key])
-#
-#		self.background = Rectangle(0, 0, 0, 255, 0, 0, 90, 90)
-#		print("Image View Background")
-#		print(self.background)
+	ef draw(self):
+		draw()
+		for c in self.get_children():
+			c.draw()
 
 
-#	def on_slideshow_model_update(self, model):
-#		self.filename = model['current_file']
-#		self.image, self.texture = self.load_texture(self.filename)
-#
-#		self.sprite = Sprite(img=self.image, batch=self.batch,
-#							 group=self.group)
-#		self.fit(self.parent.width, self.parent.height)
-#
-#
 	@classmethod
 	def load_texture(cls, file):
 		try:
@@ -203,31 +169,7 @@ class ImageLayer(cocos.layer.base_layers.Layer):
 
 		return image
 
-#
-#	def on_resize(self, width, height):
-#		self.background.resize(width, height)
-#
-#		self.fit(width, height)
-#
-#	def fit(self, dst_w, dst_h):
-#		print ('image_view fit')
-#
-#		if self.sprite is not None:
-#			rect_w = self.image.width
-#			rect_h = self.image.height
-#			xratio = float(rect_w) / float(dst_w)
-#			yratio = float(rect_h) / float(dst_h)
-#			maxratio = max(xratio, yratio)
-#			rect_w = int(rect_w / maxratio + 1)
-#			rect_h = int(rect_h / maxratio + 1)
-#			scale_x = float(rect_w) / float(self.image.width)
-#			scale_y = float(rect_h) / float(self.image.height)
-#			self.sprite.scale = scale_x
-#
-#
-#	def draw(self):
-#		self.batch.draw()
-#
+
 
 ### User Interface ------------------------------------------------------------
 class Control(event.EventDispatcher):
@@ -293,20 +235,6 @@ class TextWidgetLayer(Control):
 
 
 #
-#class FileInfoWidget(Control):
-#	"""Single line text display object for image meta data
-#	when slide show is running."""
-#	filename = ''
-#	file_id = 0
-#	file_total = 0
-#
-#	is_event_handler = True
-#
-#	def __init__(self, parent, x=0, y=100, group=None, batch=None,
-#	             **kwargs):
-#
-#		super(FileInfoWidget, self).__init__()
-
 
 class FileInfoLayer(cocos.layer.base_layers.Layer):
 
@@ -345,6 +273,7 @@ class FileInfoLayer(cocos.layer.base_layers.Layer):
 		        self.model.current_file)
 
 	def draw(self):
+		draw()
 		for c in self.get_children():
 			c.draw()
 
@@ -585,9 +514,7 @@ if __name__ == "__main__":
 		width=800, height=600, caption="Image Viewer", fullscreen = False
 	)
 
-	#ss_model   = SlideshowModel('/Volumes/Proteus/virtualbox/_share/bru')
-	ss_model   = SlideshowModel('/Mon_slideshow_model_update
-	#ss_model   = SlideshowModel('/Volumes/Proteus/virtualbox/_share/bru')
+	ss_model = SlideshowModel('/Volumes/Proteus/virtualbox/_share/bru')
 
 	ss_control = SlideshowController(ss_model)
 
