@@ -140,7 +140,7 @@ class ImageLayer(cocos.layer.base_layers.Layer):
 
 	def __init__(self):
 		self.sprite = None # cannot initialize sprite until an image is available
-
+		super(ImageLayer, self).__init__()
 
 
 
@@ -304,7 +304,7 @@ class FileInfoLayer(cocos.layer.base_layers.Layer):
 		    color=(250, 250, 250, 255),
 		    anchor_x = "left",
 		    anchor_y = "baseline",
-		    multiline = false
+		    multiline = False
 		)
 		self.add(
 			self.background,
@@ -567,14 +567,14 @@ if __name__ == "__main__":
 	ss_control = SlideshowController(ss_model)
 
 	scene = cocos.scene.Scene()
+
+	scene.add(ss_control, name = "ss_control")
 	scene.add(
 		BackgroundLayer(64, 0, 0, 255, width=800, height=600),
-		ImageLayer(),
-		TextWidgetLayer(),
-		FileInfoLayer()
+		name="backgroundLayer"
 	)
-
-	director.window.push_handlers()
+	scene.add(ImageLayer(), name="imageLayer")
+	scene.add(FileInfoLayer(), name="fileInfoLayer")
 
 
 	for c in scene.children:
