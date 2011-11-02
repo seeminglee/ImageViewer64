@@ -35,7 +35,7 @@ class ImageViewerError(Exception):
 		return repr(self.msg)
 
 ### Exceptions ----------------------------------------------------------------
-	
+
 class ImageLoadFileIOError(ImageViewerError): pass
 class FontUnavailableError(ImageViewerError): pass
 class InvalidFolderError(ImageViewerError): pass
@@ -97,7 +97,7 @@ class SlideshowModel(EventDispatcher):
 
 		self.loop = True
 		self.random = False
-		
+
 		self._current_id = 0
 		self._direction = "forward"
 		self._play_random = False
@@ -110,7 +110,7 @@ class SlideshowModel(EventDispatcher):
 
 		# animation properties
 		self._autonext_interval_msec = 2000 # in milliseconds
-		
+
 		# animation started
 		self._playing = False
 
@@ -141,34 +141,34 @@ class SlideshowModel(EventDispatcher):
 	@property
 	def current_image(self):
 		return Loader.load_image(self.current_file)
-		
+
 	@property
 	def playing(self):
 		return self._playing
-			
+
 	def play(self):
 		"""Schedule and start auto-advance to next slide"""
 		print("play args:")
 		print(args)
-		pyglet.clock.schedule_once( self.play_next, 
+		pyglet.clock.schedule_once( self.play_next,
 									self._autonext_interval_msec)
 		# instead of using interval schedules, it just callls the same
-		# function repeated so if the system is backed up it won't create 
+		# function repeated so if the system is backed up it won't create
 		# additional problems
 		self._playing = True
-									
+
 	def stop(self):
 		"""Stop animation"""
 		pyglet.clock.unschedule(self.play_next)
 		self._playing = False
-		
+
 	def play_next(self):
 		"""auto advance to next"""
 		print("plext_next() args:")
 		print(args)
 		self.next()
 		self.play()
-		
+
 	def toggle_play(self):
 		"""toggle playing and not playing states"""
 		if self._playing:
@@ -177,7 +177,7 @@ class SlideshowModel(EventDispatcher):
 		else:
 			self.play()
 			self._playing = True
-			
+
 	def change_play_interval(self, msec):
 		"""change the time interval between advances"""
 		msec = max(msec, 500)   # at least 500msec
@@ -185,7 +185,7 @@ class SlideshowModel(EventDispatcher):
 		self.stop()
 		self._autonext_interval_msec = msec
 		self.start()
-		
+
 
 	def next(self):
 		"""move to the next item"""
@@ -231,7 +231,7 @@ class SlideshowModel(EventDispatcher):
 	def limit_id_range(self):
 		self._current_id = (self._current_id + len(self.files)) \
 				% len(self.files)
-			
+
 	def _dispatch_update(self):
 		self.dispatch_event(
 		    "on_slideshow_model_update",
@@ -261,7 +261,7 @@ class SlideshowController(EventDispatcher):
 		"""Made sure all the views will listen to any model updates"""
 		self.model.push_handlers(view)
 
-		
+
 	def on_key_press(self, symbol, modifiers):
 		"""key press event: mostly listening for slideshow navigation"""
 		if symbol in [key.RIGHT, key.LEFT]:
@@ -270,11 +270,11 @@ class SlideshowController(EventDispatcher):
 				self.model.next()
 			elif symbol == key.LEFT:
 				self.model.prev()
-		
+
 		# slideshow start/stop
 		elif symbol in [key.S, key.SPACE]:
 			self.model.toggle_play()
-			
+
 		# adjust show timing and starts it off if not already playing
 		else:
 			time = 10000
@@ -285,7 +285,7 @@ class SlideshowController(EventDispatcher):
 			if symbol == key.GRAVE:
 				time = 500
 			self.model.change_play_interval(time)
-									
+
 
 	# def toggle_show(self):
 		# self.started = not self.started
@@ -438,7 +438,7 @@ class FileInfoBackground(Control):
 		self._rect.resize(w, self._rect.height)
 		self.x = 0
 		self.y = int(h/2)
-		
+
 
 
 
@@ -454,7 +454,7 @@ class FileInfoWidget(Control):
 	             **kwargs):
 
 		super(FileInfoWidget, self).__init__(self, **kwargs)
-		
+
 		self.parent = parent
 		self.x = x
 		self.y = y
@@ -579,15 +579,15 @@ class ImageView(object):
 
 		return image, texture
 
-	
+
 	def on_resize(self, width, height):
 		self.background.resize(width, height)
-		
+
 		self.fit(width, height)
 
 	def fit(self, dst_w, dst_h):
 		print ('image_view fit')
-		
+
 		if self.sprite is not None:
 			rect_w = self.image.width
 			rect_h = self.image.height
@@ -604,7 +604,7 @@ class ImageView(object):
 	def draw(self):
 		self.batch.draw()
 
-		
+
 
 class AppWindow(pyglet.window.Window):
 	"""Main app window"""
@@ -615,7 +615,7 @@ class AppWindow(pyglet.window.Window):
 		self.folder = folder
 		self.width  = width
 		self.height = height
-		
+
 		super(AppWindow, self).__init__(caption=caption, resizable=resizable,
 		                                *args, **kwargs)
 
@@ -693,9 +693,9 @@ class AppWindow(pyglet.window.Window):
 			self.x = int((1400-self.width)/2)
 			self.y = int((900-self.height)/2)
 
-		
 
-	
+
+
 
 def main(argv):
 	_folder = '/Volumes/Proteus/Pictures/test'
@@ -707,8 +707,8 @@ def main(argv):
 			_caption = argv[2]
 	window = AppWindow(folder=_folder, caption=_caption)
 	pyglet.app.run()
-		
-		
+
+
 
 if __name__ == '__main__':
 	main(sys.argv)

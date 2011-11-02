@@ -10,20 +10,18 @@ Let's see if this will cut my coding time by half.
 Created by See-ming Lee on 2011-11-01.
 Copyright (c) 2011 See-ming Lee. All rights reserved.
 """
-import sys
-from cocos.sprite import Sprite
+import re
 import os
 import os.path
 import pyglet.gl
 from cocos.director import director
 from pyglet import event
-
 import cocos
+from pyglet.gl import gl
+
 
 
 ### Exceptions ----------------------------------------------------------------
-from pyglet.gl import gl
-
 
 class ImageViewerError(Exception):
 	def __init__(self, msg):
@@ -35,6 +33,26 @@ class ImageViewerError(Exception):
 class ImageLoadFileIOError(ImageViewerError): pass
 class FontUnavailableError(ImageViewerError): pass
 class InvalidFolderError(ImageViewerError): pass
+
+
+### Model Helper --------------------------------------------------------------
+class FileType(object):
+	"""small class used to store regular expression patterns to be used
+	in conjunction with the Foleer class"""
+
+	# constants
+	JPG = 0
+	GIF = 1
+	PNG = 2
+	TIF = 3
+
+	# re patterns
+	isnot_sys = re.compile(r'^[^\.].+') # not system hidden files.
+	is_image = re.compile(r'.+\.(jpg|jpeg|gif|png|tif)$', re.IGNORECASE)
+	is_jpg = re.compile(r'.+\.(jpg|jpeg)$', re.IGNORECASE)
+	is_gif = re.compile(r'.+\.(gif)$', re.IGNORECASE)
+	is_png = re.compile(r'.+\.(png)$', re.IGNORECASE)
+	is_tif = re.compile(r'.+\.(tif)$', re.IGNORECASE)
 
 
 
@@ -340,7 +358,7 @@ class ImageLayer(cocos.layer.base_layers.Layer):
 
 	def __init__(self):
 		self.sprite = None # cannot initialize sprite until an image is available
-		
+
 
 
 
@@ -417,9 +435,9 @@ class Control(event.EventDispatcher):
 	x = y = 0
 	width = height = 10
 
-	def __init__():
+	def __init__(self):
 		pass
-		
+
 	def hit_test(self, x, y):
 		return (self.x < x < self.x + self.width and
 		        self.y < y < self.y + self.height)
@@ -434,7 +452,7 @@ class Control(event.EventDispatcher):
 class Button(Control):
 	charged = False
 
-	super(TextWidgetLayer, self).__init__():
+	def __init__(self):
 		pass
 
 
@@ -699,30 +717,28 @@ class SlideshowController(event.EventDispatcher):
 			if symbol == key.GRAVE:
 				time = 500
 			self.model.change_play_interval(time)
-				
+
 
 
 if __name__ == "__main__":
-	
+
 	director.init(
 		width=800, height=600, caption="Image Viewer", fullscreen = False
 	)
 
 	scene = cocos.scene.Scene()
-
 	scene.add(
 		BackgroundLayer(64, 0, 0, 255, width=800, height=600),
 		ImageLayer(),
-	    TextWidgetLayer(),
+		TextWidgetLayer()
 	)
 
-	ss_model = SlideshowModel()
-	ss_control = SlideshwController()
-	
+	# non=-viuals: data model and controller:
+	ss_model   = SlideshowModel('/Volumes/Proteus/virtualbox/_share/bru')
+	ss_control = SlideshowController(ss_model)
 
-	scene = SlideshowView()
+	for c in scene.children:
+		ss_model.push_handlers(c)
+
 	director.run(scene)
 
-
-if __name__=='__main__':
-	main()
