@@ -215,11 +215,14 @@ class ImageLayer(Layer):
 		print("ImageLayer.add_image_layer()")
 
 		pil = PIL.Image.open(self.image_file)
-		img = pyglet.image.load(self.image_file)
+		pyglet_img = pyglet.image.load(self.image_file)
 		target_w = self.window_width
 		target_h = self.window_height
 		orig_w = pil.size[0]
-		orig_h - pil.size[1]
+		orig_h = pil.size[1]
+
+		id = self.next_id
+		print(pil)
 
 		( xscale, yscale,
 		  result_w, result_h, dx, dy ) = SizeFitting.scaleToSize(
@@ -228,36 +231,29 @@ class ImageLayer(Layer):
 		                                 FitType.ScaleFitAspectFit)
 		imgsprite = Sprite(pyglet_img)
 
+		bg_w = int(float(target_w) / xscale)
+		bg_h = int(float(target_h) / yscale)
+
 		background = SolidColorImagePattern(
-			color=(0, 0, 0, 128)
-		).create_image(width=orig_w, height=orig_h)
+			color=(128, 0, 0, 255)
+		).create_image(width=bg_w, height=bg_h)
+
 		bgsprite = Sprite(background)
-		bgsprite.add(imgsprite, name="image")
+		bgsprite.add(imgsprite, z=id, name="image%d" % id)
 		bgsprite.scale = xscale
 		bgsprite.x = result_w/2
 		bgsprite.y = result_h/2
 
-		id = self.next_id
+
 		self.add(bgsprite, z=id, name="spritelayer%d" % id)
 
-		sprite.opacity = 0
-		sprite.do( FadeIn(1) )
-
-
-
-
+		bgsprite.opacity = 0
+		bgsprite.do( FadeIn(1) )
 
 	@property
 	def next_id(self):
 		self.z += 1
 		return self.z
-
-
-	def fadeIn(self, sprite):
-		sprite.opacity = 0
-		sprite.do( FadeIn(0.5) )
-
-
 
 	def on_resize(self, width, height):
 		print("ImageLayer.on_resize()")
