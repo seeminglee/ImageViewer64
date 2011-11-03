@@ -19,15 +19,11 @@ from cocos.layer import ColorLayer
 from cocos.scene import Scene
 from cocos.sprite import Sprite
 from cocos.text import Label
-from cocos.actions import ScaleBy
-from cocos.actions import Reverse
-from cocos.actions import Repeat
+from cocos.actions import CallFunc
+from cocos.actions import CallFuncS
 from cocos.actions import FadeIn
 from cocos.actions import FadeOut
-from cocos.actions import FadeTo
-from pyglet import event
 import cocos
-from pyglet.gl import gl
 import pyglet
 
 
@@ -153,6 +149,8 @@ class ImageLayer(Layer):
 		self.window_width = None
 		self.window_height = None
 		self.sprites = []
+		self.fading = []
+		self.z = 10
 
 	def on_slideshow_model_update(self, model):
 		print("ImageLayer.on_slideshow_model_update")
@@ -162,45 +160,64 @@ class ImageLayer(Layer):
 
 	def create_sprite(self):
 		print("ImageLayer.create_sprite()")
-
 		self.image = pyglet.image.load(self.image_file)
 		sprite = Sprite(self.image)
-		sprite.anchor = (0, 0)
-		self.add(sprite)
+		self.add(sprite, self.z, name=("sprite%d" % self.z))
+		self.fadeIn(sprite)
+		self.fadeout_old_sprites()
 		self.sprites.append(sprite)
-		self.remove_old_sprites()
-
 		self.fit_sprite_to_window()
+		self.z += 1
+
+		print("sprite.count=%d" % len(self.sprites))
+		print("names=%s" % self.children_names)
 
 	def fit_sprite_to_window(self):
-		if len(self.sprites) > 1 and self.window_width is not None:
-			for s in sprites:
+		if len(self.sprites) > 0 and self.window_width is not None:
+			for s in self.sprites:
 				scale = Util_Scaler.scaleToSize(
-						self.image.width, self.image.height,
+						s.width, s.height,
 						self.window_width, self.window_height,
 						FitType.ScaleFitAspectFit
 					)
 				s.scale = scale[0]
+				s.x = int(s.width/2)
+				s.y = int(s.height/2)
+#				print(s)
+#				print("anchor=%s transform_anchor=%s, position=%s dimension(%d, %d), scale=%s" %
+#				      (s.anchor, s.transform_anchor, s.position, s.width, s.height, s.scale))
 
+	def fadeIn(self, sprite):
+		sprite.opacity = 0
+		sprite.do( FadeIn(0.5) )
 
-	def remove_old_sprites(self):
+	def fadeout_old_sprites(self):
+		print("fadeout_old_sprites  count=%d" % len(self.sprites))
+
+		if len(self.sprites) > 2:
+			dup = self.sprites[:-2]
+#			self.sprites = self.sprites[-2:]
+			print(">>> OLD BE GONE!!!! now len(self.sprites)=%d" % len(self.sprites))
+			for too_old in dup:
+				if too_old in self.children:
+					self.sprites.remove(too_old)
+					print("%s is in self.children... " % too_old)
+					self.remove(too_old)
+
 		if len(self.sprites) > 1:
-			self.remove(self.sprites[0])
-			self.sprites = self.sprites[1:]
+			s = self.sprites[0]
+			print(">>> FADE OUT s=%s" % s)
+			s.do( FadeOut (0.5) + CallFuncS(self.remove_sprite ))
+			self.sprites.remove(s)
 
-	def on_draw(self):
-		print("ImageLayer.on_draw")
-		if self.sprite is not None:
-			self.sprite.draw()
+	def remove_sprite(self, s):
+		self.remove(s)
+
 
 	def on_resize(self, width, height):
 		print("ImageLayer.on_resize()")
 		self.window_width = width
 		self.window_height = height
-		self.fit_sprite_to_window()
-
-	def on_key_press(self, symbol, modifiers):
-		print("ImageLayer.on_key_press")
 
 	@classmethod
 	def load_texture(cls, file):
@@ -241,16 +258,15 @@ class FileInfoLayer(Layer):
 		self.model = None
 		self.background = cocos.layer.util_layers.ColorLayer(0, 0, 0, 128, 1000, 30)
 		self.label = Label(
-			"Label1", x=0, y=15,
-			font_name='PT Sans',
-			font_size=14,
+			"Label1", x=10, y=10,
+			font_name='Gill Sans',
+			font_size=10,
 		    color=(250, 250, 250, 255),
 		    anchor_x = "left",
 		    anchor_y = "baseline",
 		    multiline = False
 		)
 
-		self.text2 = Label("HELLO!!!!!", x=100, y=280 )
 		self.add(self.background, name="background")
 		self.add(self.label, name="label")
 
@@ -270,7 +286,7 @@ class FileInfoLayer(Layer):
 		if self.model is None:
 			return ''
 		else:
-			return '[%d  / %d] %s' % \
+			return '%d / %d: %s' % \
 		        (self.model.current_id+1, self.model.total_files,
 		        self.model.current_file)
 
@@ -545,14 +561,14 @@ class Controller():
 		    do_not_scale=True, resizable=True
 		)
 
-		bg = BackgroundLayer(64, 0, 0, 255, width=800, height=600)
+		bg = BackgroundLayer(0, 0, 0, 255, width=800, height=600)
 		img = ImageLayer()
 		info = FileInfoLayer()
 
 		self.scene = SingleImageScene()
-		self.scene.add(bg,   name = "bg")
-		self.scene.add(img,  name = "img")
-		self.scene.add(info, name = "info")
+		self.scene.add(bg,   z=1, name = "bg")
+		self.scene.add(img,  z=4, name = "img")
+		self.scene.add(info, z=9, name = "info")
 		self.scene.push_all_handlers()
 
 
