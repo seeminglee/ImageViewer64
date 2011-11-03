@@ -14,6 +14,10 @@ import re
 import os
 import os.path
 from cocos.director import director
+from cocos.layer import Layer
+from cocos.layer import ColorLayer
+from cocos.scene import Scene
+from cocos.text import Label
 from pyglet import event
 import cocos
 from pyglet.gl import gl
@@ -114,7 +118,7 @@ class Util_Scaler(object):
 		return x_scale, y_scale
 
 
-class BackgroundLayer(cocos.layer.ColorLayer):
+class BackgroundLayer(ColorLayer):
 	"""The absolute bottomest window."""
 
 	is_event_handler = True
@@ -125,7 +129,7 @@ class BackgroundLayer(cocos.layer.ColorLayer):
 
 
 
-class ImageLayer(cocos.layer.Layer):
+class ImageLayer(Layer):
 	"""Container of an image"""
 
 	is_event_handler = False
@@ -171,23 +175,23 @@ class ImageLayer(cocos.layer.Layer):
 
 
 ### User Interface ------------------------------------------------------------
-class Control(event.EventDispatcher):
-	"""An AbstractControl of the user interface"""
-	x = y = 0
-	width = height = 10
-
-	def __init__(self):
-		pass
-
-	def hit_test(self, x, y):
-		return (self.x < x < self.x + self.width and
-		        self.y < y < self.y + self.height)
-
-	def capture_events(self):
-		self.parent.push_handlers(self)
-
-	def release_events(self):
-		self.parent.remove_handlers(self)
+#class Control(event.EventDispatcher):
+#	"""An AbstractControl of the user interface"""
+#	x = y = 0
+#	width = height = 10
+#
+#	def __init__(self):
+#		pass
+#
+#	def hit_test(self, x, y):
+#		return (self.x < x < self.x + self.width and
+#		        self.y < y < self.y + self.height)
+#
+#	def capture_events(self):
+#		self.parent.push_handlers(self)
+#
+#	def release_events(self):
+#		self.parent.remove_handlers(self)
 
 
 #class Button(Control):
@@ -220,7 +224,7 @@ class Control(event.EventDispatcher):
 #Button.register_event_type('on_button_press')
 
 
-class TextWidgetLayer(cocos.layer.Layer):
+class TextWidgetLayer(Layer):
 	"""The absolute bottomest window."""
 
 	is_event_handler = True
@@ -234,9 +238,9 @@ class TextWidgetLayer(cocos.layer.Layer):
 		super(TextWidgetLayer, self).__init__()
 
 
-#
 
-class FileInfoLayer(cocos.layer.Layer):
+
+class FileInfoLayer(Layer):
 
 	is_event_handler = False
 
@@ -245,7 +249,7 @@ class FileInfoLayer(cocos.layer.Layer):
 		super(FileInfoLayer, self).__init__()
 		self.model = None
 		self.background = cocos.layer.util_layers.ColorLayer(250, 0, 0, 250, 1000, 30)
-		self.label = cocos.text.Label(
+		self.label = Label(
 			font_name='PT Sans',
 			font_size=14,
 		    color=(250, 250, 250, 255),
@@ -473,16 +477,12 @@ SlideshowModel.register_event_type("on_slideshow_model_update")
 
 ### Controllers ---------------------------------------------------------------
 
-class SlideshowController(cocos.layer.Layer):
+class SlideshowController(object):
 	"""controller for slideshow interactions"""
-
-	is_event_handler = True
 
 	def __init__(self, folder):
 		"""Create a controller capable of handling the slidehow user inputs"""
 		super(SlideshowController, self).__init__()
-
-
 		self.model = SlideshowModel(folder)
 
 
@@ -525,64 +525,49 @@ class SlideshowController(cocos.layer.Layer):
 
 class SingleImageScene(cocos.scene.Scene):
 
-	is_event_handler = True
-
-	def __init__(self, folder, *children):
+	def __init__(self, *children):
 		"""Creates a Scene with layers and / or scenes."""
 		super(SingleImageScene, self).__init__(*children)
 
-		ss_control = SlideshowController(folder)
-		self.add(ss_control, name="slideshowController")
-		self.add(
-			BackgroundLayer(64, 0, 0, 255, width=800, height=600),
-			name="backgroundLayer"
+
+class Controller():
+
+	def __init__(self, folder):
+		director.init(
+			width=800, height=600, caption="Image Viewer", fullscreen = False
 		)
-		self.add(ImageLayer(), name="imageLayer")
-		self.add(FileInfoLayer(), name="fileInfoLayer")
 
-		ss_control.add_model_update_handlers(
-			[c for c in self.children if c is not ss_control]
+		bg = BackgroundLayer(64, 0, 0, 255, width=800, height=600)
+		img = ImageLayer()
+		info = FileInfoLayer()
+
+		self.scene = SingleImageScene()
+		self.scene.add(bg,   name = "Layers.Background")
+		self.scene.add(img,  name = "Layers.Image")
+		self.scene.add(info, name = "Layers.Info")
+
+
+		self.slideshowController = SlideshowController(folder)
+		self.slideshowController.add_model_update_handlers(
+			[bg, img, info]
 		)
-#		for c in self.children:
-#			self.model.push_handlers(c)
+		director.window.push_handlers(self.slideshowController)
 
 
-		self.enable_handlers()
-		self.push_all_handlers()
 
 		print ("INIT >>> SingleImageScene.init()")
 
 
-if __name__ == "__main__":
 
-	director.init(
-		width=800, height=600, caption="Image Viewer", fullscreen = False
-	)
-	scene = SingleImageScene('/Volumes/Proteus/virtualbox/_share/bru')
-	scene.enable_handlers()
-	director.run(scene)
-
-#	ss_model = SlideshowModel('/Volumes/Proteus/virtualbox/_share/bru')
-#	ss_control = SlideshowController(ss_model)
-#
-#	scene = cocos.scene.Scene()
-#	scene.add(ss_control, name = "ss_control")
-#	scene.add(
-#		BackgroundLayer(64, 0, 0, 255, width=800, height=600),
-#		name="backgroundLayer"
-#	)
-#	scene.add(ImageLayer(), name="imageLayer")
-#	scene.add(FileInfoLayer(), name="fileInfoLayer")
+	def run(self):
+		director.run(self.scene)
 
 
-	# event registration
-#	SlideshowModel.register_event_type("on_slideshow_model_update")
-
-	# event handler registrations
-#	for c in scene.children:
-#		ss_model.push_handlers(c)
-
-#
+def main():
+	controller = Controller('/Volumes/Proteus/virtualbox/_share/bru')
+	controller.run()
 
 
+if __name__ == '__main__':
+	main()
 
