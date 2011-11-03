@@ -208,39 +208,43 @@ class ImageLayer(Layer):
 	def on_slideshow_model_update(self, model):
 		print("ImageLayer.on_slideshow_model_update")
 		self.image_file = model.current_file
-		self.add_image_layer()
+		self.add_image_sprite()
 
 
-	def add_image_layer(self):
+	def add_image_sprite(self):
 		print("ImageLayer.add_image_layer()")
-		layer = self.padded_window_fitted_image_layer(
-			pyglet.image.load(self.image_file),
-			self.window_width, self.window_height
-		)
-		layerid = self.next_id
-		self.add(layer, z=layerid, name="layer_%d" % layerid)
-#		layer.do( FadeOut(0) + FadeIn(3) )
+
+		pil = PIL.Image.open(self.image_file)
+		img = pyglet.image.load(self.image_file)
+		target_w = self.window_width
+		target_h = self.window_height
+		orig_w = pil.size[0]
+		orig_h - pil.size[1]
+
+		( xscale, yscale,
+		  result_w, result_h, dx, dy ) = SizeFitting.scaleToSize(
+										 orig_w, orig_h,
+				                         target_w, target_h,
+		                                 FitType.ScaleFitAspectFit)
+		imgsprite = Sprite(pyglet_img)
+
+		background = SolidColorImagePattern(
+			color=(0, 0, 0, 128)
+		).create_image(width=orig_w, height=orig_h)
+		bgsprite = Sprite(background)
+		bgsprite.add(imgsprite, name="image")
+		bgsprite.scale = xscale
+		bgsprite.x = result_w/2
+		bgsprite.y = result_h/2
+
+		id = self.next_id
+		self.add(bgsprite, z=id, name="spritelayer%d" % id)
+
+		sprite.opacity = 0
+		sprite.do( FadeIn(1) )
 
 
-	def padded_window_fitted_image_layer(self, pyglet_img,
-										 target_w, target_h):
-		orig_w = pyglet_img.width
-		orig_h = pyglet_img.height
 
-		fit = SizeFitting.scaleToSize(
-			orig_w, orig_h, target_w, target_h, FitType.ScaleFitAspectFit)
-		(xscale, yscale, result_w, result_h, dx, dy) = fit
-
-		layer = Layer()
-
-		layer.add(
-			ColorLayer(r=int(0), g=int(0), b=int(0), a=int(255),
-				width=int(target_w/xscale), height=int(target_h/yscale)
-			), name="blackmatte" )
-
-		layer.add( Sprite(pyglet_img), name="sprite" )
-		layer.scale = xscale
-		return layer
 
 
 	@property
