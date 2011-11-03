@@ -148,6 +148,7 @@ class ImageLayer(Layer):
 		super(ImageLayer, self).__init__()
 		self.texture = None
 		self.sprite = None
+		self.image = None
 		self.image_file = None
 		self.window_width = None
 		self.window_height = None
@@ -162,25 +163,27 @@ class ImageLayer(Layer):
 	def create_sprite(self):
 		print("ImageLayer.create_sprite()")
 
-		image = pyglet.image.load(self.image_file)
-
-		scale = 1
-		if self.window_width is not None:
-			scale = Util_Scaler.scaleToSize(
-					image.width, image.height,
-					self.window_width, self.window_height,
-					FitType.ScaleFitAspectFit
-				)
-		sprite = Sprite(
-				image, scale=scale[0], anchor=(0,0)
-			)
-
+		self.image = pyglet.image.load(self.image_file)
+		sprite = Sprite(self.image)
+		sprite.anchor = (0, 0)
 		self.add(sprite)
 		self.sprites.append(sprite)
+		self.remove_old_sprites()
 
-		self.remove_last_sprite()
+		self.fit_sprite_to_window()
 
-	def remove_last_sprite(self):
+	def fit_sprite_to_window(self):
+		if len(self.sprites) > 1 and self.window_width is not None:
+			for s in sprites:
+				scale = Util_Scaler.scaleToSize(
+						self.image.width, self.image.height,
+						self.window_width, self.window_height,
+						FitType.ScaleFitAspectFit
+					)
+				s.scale = scale[0]
+
+
+	def remove_old_sprites(self):
 		if len(self.sprites) > 1:
 			self.remove(self.sprites[0])
 			self.sprites = self.sprites[1:]
@@ -194,6 +197,7 @@ class ImageLayer(Layer):
 		print("ImageLayer.on_resize()")
 		self.window_width = width
 		self.window_height = height
+		self.fit_sprite_to_window()
 
 	def on_key_press(self, symbol, modifiers):
 		print("ImageLayer.on_key_press")
@@ -549,10 +553,6 @@ class Controller():
 		self.scene.add(bg,   name = "bg")
 		self.scene.add(img,  name = "img")
 		self.scene.add(info, name = "info")
-
-
-
-
 		self.scene.push_all_handlers()
 
 
