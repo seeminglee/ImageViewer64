@@ -121,43 +121,42 @@ class BackgroundLayer(cocos.layer.ColorLayer):
 
 	def __init__(self, r, g, b, a, width=100, height=100):
 		super(BackgroundLayer, self).__init__(r, g, b, a, width, height)
+		print("INIT >>> BackgroundLayer.init() ")
 
 
 
-class ImageLayer(cocos.layer.base_layers.Layer):
+class ImageLayer(cocos.layer.Layer):
 	"""Container of an image"""
 
+	is_event_handler = False
+
 	def __init__(self):
+		print("INIT >>> ImageLayer.init() ")
 		super(ImageLayer, self).__init__()
 		self.texture = None
 		self.sprite = None
-		print("ImageLayer.init()")
+		self.image_file = None
 
 	def on_slideshow_model_update(self, model):
-		self.texture = self.load_image(model.current_file)
-		print("ImageLayer .on_model_update")
-		print(model.current_file)
+		print("ImageLayer.on_slideshow_model_update")
+		self.image_file = model.current_file
+		self.create_sprite()
 
 
-	def create_image(self):
-		print("ImageLayer.create_image()")
-		winsize = director.get_window_size()
-		if winsize is not None:
-			scale_x = scale_y = Util_Scaler.scaleToSize(
+	def create_sprite(self):
+		print("ImageLayer.create_sprite()")
+
+		scale = Util_Scaler.scaleToSize(
 				self.texture.width, self.texture.height,
 				winsize.width, winsize.height,
-			    FitType.ScaleFitAspectFit
+				FitType.ScaleFitAspectFit
 			)
 		self.sprite = cocos.sprite.Sprite(
-			self.texture, position=(0,0), rotation=0, scale=scale_x,
-		    opacity=255, color=(255, 255, 255), anchor=(0,0)
-		)
+				self.image_file, scale=scale, anchor=(0,0)
+			)
 
-	ef draw(self):
-		draw()
-		for c in self.get_children():
-			c.draw()
-
+	def on_key_press(self, symbol, modifiers):
+		print("ImageLayer.on_key_press")
 
 	@classmethod
 	def load_texture(cls, file):
@@ -191,42 +190,43 @@ class Control(event.EventDispatcher):
 		self.parent.remove_handlers(self)
 
 
-class Button(Control):
-	charged = False
+#class Button(Control):
+#	charged = False
+#
+#	def __init__(self):
+#		pass
+#
+#
+#	def draw(self):
+#		if self.charged:
+#			gl.glColor3f(1, 0, 0)
+#		draw_rect(self.x, self.y, self.width, self.height)
+#		gl.glColor3f(1, 1, 1)
+#		self.draw_label()
+#
+#	def on_mouse_press(self, x, y, button, modifiers):
+#		self.capture_events()
+#		self.charged = True
+#
+#	def on_mouse_draw(self, x, y, dx, dy, buttons, modifiers):
+#		self.charged = self.hit_test(x, y)
+#
+#	def on_mouse_release(self, x, y, button, modifiers):
+#		self.release_events()
+#		if self.hit_test(xy):
+#			self.dispatch_event('on_button_press')
+#		self.charged = False
+#
+#Button.register_event_type('on_button_press')
 
-	def __init__(self):
-		pass
 
-
-	def draw(self):
-		if self.charged:
-			gl.glColor3f(1, 0, 0)
-		draw_rect(self.x, self.y, self.width, self.height)
-		gl.glColor3f(1, 1, 1)
-		self.draw_label()
-
-	def on_mouse_press(self, x, y, button, modifiers):
-		self.capture_events()
-		self.charged = True
-
-	def on_mouse_draw(self, x, y, dx, dy, buttons, modifiers):
-		self.charged = self.hit_test(x, y)
-
-	def on_mouse_release(self, x, y, button, modifiers):
-		self.release_events()
-		if self.hit_test(xy):
-			self.dispatch_event('on_button_press')
-		self.charged = False
-
-Button.register_event_type('on_button_press')
-
-
-class TextWidgetLayer(Control):
+class TextWidgetLayer(cocos.layer.Layer):
 	"""The absolute bottomest window."""
 
 	is_event_handler = True
 
 	def __init__(self, r=0, g=0, b=0, a=255, width=100, height=100):
+		print("INIT >>> TextWidgetLayer.init() ")
 		self.color = (r,g,b,a)
 		self.width = width
 		self.height = height
@@ -236,11 +236,12 @@ class TextWidgetLayer(Control):
 
 #
 
-class FileInfoLayer(cocos.layer.base_layers.Layer):
+class FileInfoLayer(cocos.layer.Layer):
 
-	is_event_handler = True
+	is_event_handler = False
 
 	def __init__(self, text='', position=(0, 0), **kwargs):
+		print("INIT >>> FileInfoLayer.init() ")
 		super(FileInfoLayer, self).__init__()
 		self.model = None
 		self.background = cocos.layer.util_layers.ColorLayer(250, 0, 0, 250, 1000, 30)
@@ -272,18 +273,21 @@ class FileInfoLayer(cocos.layer.base_layers.Layer):
 		        (self.model.current_id+1, self.model.total_files,
 		        self.model.current_file)
 
-	def draw(self):
-		draw()
-		for c in self.get_children():
-			c.draw()
+
+class SlideshowModelUpdate(object):
+	def __init__(self):
+		pass
 
 
 
-
-class SlideshowModel(event.EventDispatcher):
+class SlideshowModel(pyglet.event.EventDispatcher):
 	"""model of the slideshow"""
+
+
+
 	def __init__(self, folder):
 		"""initialize with name of the folder"""
+		super(SlideshowModel, self).__init__()
 		try:
 			self.folder = folder
 			if not os.path.exists(self.folder):
@@ -412,7 +416,10 @@ class SlideshowModel(event.EventDispatcher):
 				self._id_queue.remove(self.current_id)
 				self._id_queue_past.append(self.current_id)
 
-		self._dispatch_update()
+		self._dispatch_slideshow_update()
+
+		print("current id: %d" % self.current_id)
+
 
 	def prev(self):
 		"""move to the previous item"""
@@ -432,47 +439,51 @@ class SlideshowModel(event.EventDispatcher):
 				self._current_id = self._id_queue_past.pop()
 				self._id_queue.append(self.current_id)
 
-		self._dispatch_update()
+		self._dispatch_slideshow_update()
 
 	def limit_id_range(self):
 		self._current_id = (self._current_id + len(self.files)) \
 				% len(self.files)
 
-	def _dispatch_update(self):
-		print ("SS_MODEL... [%d/%d] file=%s") % (self.current_id,
-		                                         self.total_files,
-												 self.current_file)
+	def _dispatch_slideshow_update(self):
+		print ("SS_MODEL DISPATCH UPDATE >>>\n" +
+		       "[%d/%d] file=%s") % (self.current_id,
+		                                self.total_files,
+										self.current_file)
 		self.dispatch_event(
-		    "on_slideshow_model_update",
-		    dict(
-			    current_id   = self.current_id,
-		        current_file = self.current_file,
-		        total_files  = self.total_files
-		    )
-
+			"on_slideshow_model_update", self
 		)
+#		self.dispatch_event(
+#		    "on_slideshow_model_update",
+#		    dict(
+#			    current_id   = self.current_id,
+#		        current_file = self.current_file,
+#		        total_files  = self.total_files
+#		    )
+#
+#		)
 
 	def __repr__(self):
 		return "SlideshowModel:" + \
 		       "\n".join([(k, getattr(self, k)) for k in self.__dict__])
+
 
 SlideshowModel.register_event_type("on_slideshow_model_update")
 
 
 ### Controllers ---------------------------------------------------------------
 
-class SlideshowController(cocos.cocosnode.CocosNode):
+class SlideshowController(cocos.layer.Layer):
 	"""controller for slideshow interactions"""
 
 	is_event_handler = True
 
-	def __init__(self, model, *args, **kwargs):
-		super(SlideshowController, self).__init__(*args, **kwargs)
-		self.model = model
+	def __init__(self, folder):
+		"""Create a controller capable of handling the slidehow user inputs"""
+		super(SlideshowController, self).__init__()
 
-	def add_model_observer(self, view):
-		"""Made sure all the views will listen to any model updates"""
-		self.model.push_handlers(view)
+
+		self.model = SlideshowModel(folder)
 
 
 	def on_key_press(self, symbol, modifiers):
@@ -506,6 +517,40 @@ class SlideshowController(cocos.cocosnode.CocosNode):
 				time = 500
 			self.model.change_play_interval(time)
 
+	def add_model_update_handlers(self, list):
+		for obj in list:
+			self.model.push_handlers(obj)
+
+
+
+class SingleImageScene(cocos.scene.Scene):
+
+	is_event_handler = True
+
+	def __init__(self, folder, *children):
+		"""Creates a Scene with layers and / or scenes."""
+		super(SingleImageScene, self).__init__(*children)
+
+		ss_control = SlideshowController(folder)
+		self.add(ss_control, name="slideshowController")
+		self.add(
+			BackgroundLayer(64, 0, 0, 255, width=800, height=600),
+			name="backgroundLayer"
+		)
+		self.add(ImageLayer(), name="imageLayer")
+		self.add(FileInfoLayer(), name="fileInfoLayer")
+
+		ss_control.add_model_update_handlers(
+			[c for c in self.children if c is not ss_control]
+		)
+#		for c in self.children:
+#			self.model.push_handlers(c)
+
+
+		self.enable_handlers()
+		self.push_all_handlers()
+
+		print ("INIT >>> SingleImageScene.init()")
 
 
 if __name__ == "__main__":
@@ -513,26 +558,31 @@ if __name__ == "__main__":
 	director.init(
 		width=800, height=600, caption="Image Viewer", fullscreen = False
 	)
-
-	ss_model = SlideshowModel('/Volumes/Proteus/virtualbox/_share/bru')
-
-	ss_control = SlideshowController(ss_model)
-
-	scene = cocos.scene.Scene()
-
-	scene.add(ss_control, name = "ss_control")
-	scene.add(
-		BackgroundLayer(64, 0, 0, 255, width=800, height=600),
-		name="backgroundLayer"
-	)
-	scene.add(ImageLayer(), name="imageLayer")
-	scene.add(FileInfoLayer(), name="fileInfoLayer")
-
-
-	for c in scene.children:
-		ss_model.push_handlers(c)
-
-	director.window.push_handlers(ss_control)
-
+	scene = SingleImageScene('/Volumes/Proteus/virtualbox/_share/bru')
+	scene.enable_handlers()
 	director.run(scene)
+
+#	ss_model = SlideshowModel('/Volumes/Proteus/virtualbox/_share/bru')
+#	ss_control = SlideshowController(ss_model)
+#
+#	scene = cocos.scene.Scene()
+#	scene.add(ss_control, name = "ss_control")
+#	scene.add(
+#		BackgroundLayer(64, 0, 0, 255, width=800, height=600),
+#		name="backgroundLayer"
+#	)
+#	scene.add(ImageLayer(), name="imageLayer")
+#	scene.add(FileInfoLayer(), name="fileInfoLayer")
+
+
+	# event registration
+#	SlideshowModel.register_event_type("on_slideshow_model_update")
+
+	# event handler registrations
+#	for c in scene.children:
+#		ss_model.push_handlers(c)
+
+#
+
+
 
