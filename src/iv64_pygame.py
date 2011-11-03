@@ -18,6 +18,7 @@ import random
 import re
 import sys
 
+
 class ImageViewerError(Exception): pass
 class ImageLoadFileIOError(ImageViewerError): pass
 class FontUnavailableError(ImageViewerError): pass
@@ -296,7 +297,7 @@ class Queue(object):
 		"""return the count total of all files"""
 		return len(self.files)
 
-	
+
 def main(argv=None):
 	folder=argv[1]
 	# Initialise screen
@@ -335,12 +336,12 @@ def main(argv=None):
 	backsprite.rect = rect
 
 	allsprites = pygame.sprite.LayeredUpdates((backsprite, imageview, fileinfo))
-	
+
 	# Blit everything to screen
 	screen.blit(background, (0, 0))
 	allsprites.draw(screen)
 	pygame.display.flip()
-	
+
 
 	# Fullscreen control
 	is_fullscreen = False

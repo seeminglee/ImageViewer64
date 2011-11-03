@@ -133,6 +133,18 @@ class BackgroundLayer(ColorLayer):
 		print("INIT >>> BackgroundLayer.init() ")
 
 
+class PaddedSpriteLayer(ColorLayer):
+	"""This is a color layer with a sprite in it. Alternativley you can see it
+	as a sprite padded by a solid color"""
+	def __init___(self, sprite=None, r=0, g=0, b=0, a=255,
+	              width=None, height=None):
+
+		super(PaddedSpriteLayer, self).__init__(r,g,b,a, width, height)
+		self.add(sprite, z=2, name="sprite")
+
+		if sprite is not None:
+			self.sprite = sprite
+
 
 class ImageLayer(Layer):
 	"""Container of an image"""
@@ -151,6 +163,7 @@ class ImageLayer(Layer):
 		self.sprites = []
 		self.fading = []
 		self.z = 10
+		self.pads = []
 
 	def on_slideshow_model_update(self, model):
 		print("ImageLayer.on_slideshow_model_update")
@@ -162,10 +175,17 @@ class ImageLayer(Layer):
 		print("ImageLayer.create_sprite()")
 		self.image = pyglet.image.load(self.image_file)
 		sprite = Sprite(self.image)
-		self.add(sprite, self.z, name=("sprite%d" % self.z))
-		self.fadeIn(sprite)
-		self.fadeout_old_sprites()
+		pad = self.add(
+			PaddedSpriteLayer( r=0, g=0, b=0, a=255,
+			                  width=0, height=0, self.sprite),
+		    self.z,
+			name='paddedSpriteLayer%d' % self.z
+		)
+#		self.add(self.sprite, self.z, name=("sprite%d" % self.z))
+		self.fadeIn(pad)
+#		self.fadeout_old_sprites()
 		self.sprites.append(sprite)
+		self.pads.append(pad)
 		self.fit_sprite_to_window()
 		self.z += 1
 
@@ -184,34 +204,32 @@ class ImageLayer(Layer):
 				s.x = int(s.width/2)
 				s.y = int(s.height/2)
 #				print(s)
-#				print("anchor=%s transform_anchor=%s, position=%s dimension(%d, %d), scale=%s" %
-#				      (s.anchor, s.transform_anchor, s.position, s.width, s.height, s.scale))
 
 	def fadeIn(self, sprite):
 		sprite.opacity = 0
 		sprite.do( FadeIn(0.5) )
 
-	def fadeout_old_sprites(self):
-		print("fadeout_old_sprites  count=%d" % len(self.sprites))
-
-		if len(self.sprites) > 2:
-			dup = self.sprites[:-2]
-#			self.sprites = self.sprites[-2:]
-			print(">>> OLD BE GONE!!!! now len(self.sprites)=%d" % len(self.sprites))
-			for too_old in dup:
-				if too_old in self.children:
-					self.sprites.remove(too_old)
-					print("%s is in self.children... " % too_old)
-					self.remove(too_old)
-
-		if len(self.sprites) > 1:
-			s = self.sprites[0]
-			print(">>> FADE OUT s=%s" % s)
-			s.do( FadeOut (0.5) + CallFuncS(self.remove_sprite ))
-			self.sprites.remove(s)
-
-	def remove_sprite(self, s):
-		self.remove(s)
+#	def fadeout_old_sprites(self):
+#		print("fadeout_old_sprites  count=%d" % len(self.sprites))
+#
+#		if len(self.sprites) > 2:
+#			dup = self.sprites[:-2]
+##			self.sprites = self.sprites[-2:]
+#			print(">>> OLD BE GONE!!!! now len(self.sprites)=%d" % len(self.sprites))
+#			for too_old in dup:
+#				if too_old in self.children:
+#					self.sprites.remove(too_old)
+#					print("%s is in self.children... " % too_old)
+#					self.remove(too_old)
+#
+#		if len(self.sprites) > 1:
+#			s = self.sprites[0]
+#			print(">>> FADE OUT s=%s" % s)
+#			s.do( FadeOut (0.5) + CallFuncS(self.remove_sprite ))
+#			self.sprites.remove(s)
+#
+#	def remove_sprite(self, s):
+#		self.remove(s)
 
 
 	def on_resize(self, width, height):
