@@ -19,6 +19,12 @@ from cocos.layer import ColorLayer
 from cocos.scene import Scene
 from cocos.sprite import Sprite
 from cocos.text import Label
+from cocos.actions import ScaleBy
+from cocos.actions import Reverse
+from cocos.actions import Repeat
+from cocos.actions import FadeIn
+from cocos.actions import FadeOut
+from cocos.actions import FadeTo
 from pyglet import event
 import cocos
 from pyglet.gl import gl
@@ -83,15 +89,13 @@ class EnumUtil(object):
 		enums = dict(zip(sequential, range(len(sequential))), **named)
 		return type('Enum', (), enums)
 
-
+FitType = EnumUtil.enum('ScaleFitFull',
+	                    'ScaleFitAspectFit',
+	                    'ScaleFitAspectFill')
 
 class Util_Scaler(object):
 	"""Utility to keep aspect ratio the same before and after scaling using
 	three different algorithms."""
-
-	FitType = EnumUtil.enum('ScaleFitFull',
-	                        'ScaleFitAspectFit',
-	                        'ScaleFitAspectFill')
 
 	@staticmethod
 	def scaleToSize(orig_w, orig_h, target_w, target_h,
@@ -147,6 +151,7 @@ class ImageLayer(Layer):
 		self.image_file = None
 		self.window_width = None
 		self.window_height = None
+		self.sprites = []
 
 	def on_slideshow_model_update(self, model):
 		print("ImageLayer.on_slideshow_model_update")
@@ -157,25 +162,38 @@ class ImageLayer(Layer):
 	def create_sprite(self):
 		print("ImageLayer.create_sprite()")
 
-		self.image = pyglet.image.load(self.image_file)
-#		self.sprite = Sprite(self.image)
-#		self.sprite = Sprite(self.image_file)
+		image = pyglet.image.load(self.image_file)
 
 		scale = 1
 		if self.window_width is not None:
 			scale = Util_Scaler.scaleToSize(
-					self.image.width, self.image.height,
+					image.width, image.height,
 					self.window_width, self.window_height,
 					FitType.ScaleFitAspectFit
 				)
-		self.sprite = Sprite(
-				self.image, scale=scale, anchor=(0,0)
+		sprite = Sprite(
+				image, scale=scale[0], anchor=(0,0)
 			)
+
+		self.add(sprite)
+		self.sprites.append(sprite)
+
+		self.remove_last_sprite()
+
+	def remove_last_sprite(self):
+		if len(self.sprites) > 1:
+			self.remove(self.sprites[0])
+			self.sprites = self.sprites[1:]
+
+	def on_draw(self):
+		print("ImageLayer.on_draw")
+		if self.sprite is not None:
+			self.sprite.draw()
 
 	def on_resize(self, width, height):
 		print("ImageLayer.on_resize()")
 		self.window_width = width
-		self.window_height = heightt
+		self.window_height = height
 
 	def on_key_press(self, symbol, modifiers):
 		print("ImageLayer.on_key_press")
@@ -191,55 +209,6 @@ class ImageLayer(Layer):
 		return image
 
 
-
-### User Interface ------------------------------------------------------------
-#class Control(event.EventDispatcher):
-#	"""An AbstractControl of the user interface"""
-#	x = y = 0
-#	width = height = 10
-#
-#	def __init__(self):
-#		pass
-#
-#	def hit_test(self, x, y):
-#		return (self.x < x < self.x + self.width and
-#		        self.y < y < self.y + self.height)
-#
-#	def capture_events(self):
-#		self.parent.push_handlers(self)
-#
-#	def release_events(self):
-#		self.parent.remove_handlers(self)
-
-
-#class Button(Control):
-#	charged = False
-#
-#	def __init__(self):
-#		pass
-#
-#
-#	def draw(self):
-#		if self.charged:
-#			gl.glColor3f(1, 0, 0)
-#		draw_rect(self.x, self.y, self.width, self.height)
-#		gl.glColor3f(1, 1, 1)
-#		self.draw_label()
-#
-#	def on_mouse_press(self, x, y, button, modifiers):
-#		self.capture_events()
-#		self.charged = True
-#
-#	def on_mouse_draw(self, x, y, dx, dy, buttons, modifiers):
-#		self.charged = self.hit_test(x, y)
-#
-#	def on_mouse_release(self, x, y, button, modifiers):
-#		self.release_events()
-#		if self.hit_test(xy):
-#			self.dispatch_event('on_button_press')
-#		self.charged = False
-#
-#Button.register_event_type('on_button_press')
 
 
 class TextWidgetLayer(Layer):
@@ -266,8 +235,9 @@ class FileInfoLayer(Layer):
 		print("INIT >>> FileInfoLayer.init() ")
 		super(FileInfoLayer, self).__init__()
 		self.model = None
-		self.background = cocos.layer.util_layers.ColorLayer(250, 0, 0, 250, 1000, 30)
+		self.background = cocos.layer.util_layers.ColorLayer(0, 0, 0, 128, 1000, 30)
 		self.label = Label(
+			"Label1", x=0, y=15,
 			font_name='PT Sans',
 			font_size=14,
 		    color=(250, 250, 250, 255),
@@ -275,16 +245,21 @@ class FileInfoLayer(Layer):
 		    anchor_y = "baseline",
 		    multiline = False
 		)
-		self.add(
-			self.background,
-			self.label
-		)
+
+		self.text2 = Label("HELLO!!!!!", x=100, y=280 )
+		self.add(self.background, name="background")
+		self.add(self.label, name="label")
+
 
 	def on_slideshow_model_update(self, model):
 		print("FileInfoLayer.ON_SLIDESOW_MODEL_UPDATE")
 		self.model = model
-		self.label.text = self.text
+		self.label.element.text = self.text
 		print("FileInfoLayer: %s" % self.text)
+
+	def on_draw(self):
+		self.background.draw()
+		self.label.draw()
 
 	@property
 	def text(self):
@@ -295,10 +270,6 @@ class FileInfoLayer(Layer):
 		        (self.model.current_id+1, self.model.total_files,
 		        self.model.current_file)
 
-
-class SlideshowModelUpdate(object):
-	def __init__(self):
-		pass
 
 
 
@@ -521,6 +492,17 @@ class SlideshowController(object):
 		elif symbol in [pyglet.window.key.S, pyglet.window.key.SPACE]:
 			self.model.toggle_play()
 
+		# window resizing
+		elif symbol in [pyglet.window.key.BRACKETLEFT,
+		                pyglet.window.key.BRACKETRIGHT]:
+			win = director.window
+			if symbol == pyglet.window.key.BRACKETLEFT:
+				win.width =  int(max(200, win.width * 0.9))
+				win.height = int(max(150, win.height * 0.9))
+			elif symbol == pyglet.window.key.BRACKETRIGHT:
+				win.width =  (min(1200,win.width * 1.1))
+				win.height = (min(850, win.height * 1.1))
+
 		# adjust show timing and starts it off if not already playing
 		else:
 			time = 10000
@@ -535,6 +517,8 @@ class SlideshowController(object):
 			if symbol == pyglet.window.key.GRAVE:
 				time = 500
 			self.model.change_play_interval(time)
+
+
 
 	def add_model_update_handlers(self, list):
 		for obj in list:
@@ -553,7 +537,8 @@ class Controller():
 
 	def __init__(self, folder):
 		director.init(
-			width=800, height=600, caption="Image Viewer", fullscreen = False
+			width=800, height=600, caption="Image Viewer", fullscreen=False,
+		    do_not_scale=True, resizable=True
 		)
 
 		bg = BackgroundLayer(64, 0, 0, 255, width=800, height=600)
@@ -561,9 +546,13 @@ class Controller():
 		info = FileInfoLayer()
 
 		self.scene = SingleImageScene()
-		self.scene.add(bg,   name = "Layers.Background")
-		self.scene.add(img,  name = "Layers.Image")
-		self.scene.add(info, name = "Layers.Info")
+		self.scene.add(bg,   name = "bg")
+		self.scene.add(img,  name = "img")
+		self.scene.add(info, name = "info")
+
+
+
+
 		self.scene.push_all_handlers()
 
 
@@ -572,7 +561,7 @@ class Controller():
 			[bg, img, info]
 		)
 		director.window.push_handlers(self.slideshowController)
-
+		director.window.push_handlers(img)
 
 
 		print ("INIT >>> SingleImageScene.init()")
@@ -584,8 +573,7 @@ class Controller():
 
 
 def main():
-	controller = Controller('/Users/sml/Pictures/test')
-#	controller = Controller('./test')
+	controller = Controller('/Volumes/Proteus/virtualbox/_share/bru')
 	controller.run()
 
 
