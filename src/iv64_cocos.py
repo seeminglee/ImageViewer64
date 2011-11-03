@@ -23,9 +23,14 @@ from cocos.actions import CallFunc
 from cocos.actions import CallFuncS
 from cocos.actions import FadeIn
 from cocos.actions import FadeOut
+import PIL
+from PIL import Image
+from PIL import ImageDraw
+from PIL import ImageChops
 import cocos
 import pyglet
-
+from pyglet.image.codecs.pil import PILImageDecoder
+from PIL import ImageGL
 
 
 
@@ -89,7 +94,7 @@ FitType = EnumUtil.enum('ScaleFitFull',
 	                    'ScaleFitAspectFit',
 	                    'ScaleFitAspectFill')
 
-class Util_Scaler(object):
+class SizeFitting(object):
 	"""Utility to keep aspect ratio the same before and after scaling using
 	three different algorithms."""
 
@@ -104,9 +109,12 @@ class Util_Scaler(object):
 		target_aspect = target_w / target_h
 		orig_aspect = orig_w / orig_h
 
+		x_scale = 0
+		y_scale = 0
+
 		if fit_type is FitType.ScaleFitFull:
-			x_scale = target_w / origin_w
-			y_scale = target_h / origin_h
+			x_scale = target_w / orig_w
+			y_scale = target_h / orig_h
 
 		elif fit_type is FitType.ScaleFitAspectFit:
 			if target_aspect > orig_aspect:
@@ -120,7 +128,10 @@ class Util_Scaler(object):
 			else:
 				y_scale = x_scale = target_h / orig_h
 
-		return x_scale, y_scale
+		return dict(xscale=x_scale,
+		            yscale=y_scale,
+		            result_w=int(orig_w * x_scale),
+		            result_h=int(orig_h * y_scale))
 
 
 class BackgroundLayer(ColorLayer):
@@ -136,14 +147,37 @@ class BackgroundLayer(ColorLayer):
 class PaddedSpriteLayer(ColorLayer):
 	"""This is a color layer with a sprite in it. Alternativley you can see it
 	as a sprite padded by a solid color"""
-	def __init___(self, sprite=None, r=0, g=0, b=0, a=255,
-	              width=None, height=None):
+	def __init___(self, r=0, g=0, b=0, a=255,
+	              width=None, height=None, sprite=None):
 
 		super(PaddedSpriteLayer, self).__init__(r,g,b,a, width, height)
 		self.add(sprite, z=2, name="sprite")
 
 		if sprite is not None:
 			self.sprite = sprite
+
+class ImageUtil(object):
+	"""Utility functions for images: mainly for PIL"""
+
+	@staticmethod
+	def toPIL(image):
+		"""convert a pygame image to a PIL image"""
+#		raw = pygame.image.tostring(image, "RGBX")
+		raw = image.get_image_data()
+		return Image.fromstring("RGBX",
+		                           image.get_size(),
+		                           raw)
+
+	@staticmethod
+	def fromPIL(pilimage):
+		"""convert a PIL image to a pygame image"""
+		raw = pilimage.tostring()
+		return pygame.image.fromstring(raw, pilimage.size, "RGBX")
+
+	@staticmethod
+	def resize(image, size, filter=Image.BICUBIC):
+		"""resize a pygame image"""
+		return fromPIL(toPIL(image).resize(size, filter))
 
 
 class ImageLayer(Layer):
@@ -173,37 +207,96 @@ class ImageLayer(Layer):
 
 	def create_sprite(self):
 		print("ImageLayer.create_sprite()")
-		self.image = pyglet.image.load(self.image_file)
-		sprite = Sprite(self.image)
-		pad = self.add(
-			PaddedSpriteLayer( r=0, g=0, b=0, a=255,
-			                  width=0, height=0, self.sprite),
-		    self.z,
-			name='paddedSpriteLayer%d' % self.z
-		)
+#		self.image = pyglet.image.load(self.image_file)
+#		self.image = im
+#		sprite = Sprite(self.image)
+#
+
+
+#		pad = self.add(
+#			PaddedSpriteLayer( r=0, g=0, b=0, a=255,
+#			                  width=0, height=0, sprite=self.sprite),
+#		    self.z,
+#			name='paddedSpriteLayer%d' % self.z
+#		)
 #		self.add(self.sprite, self.z, name=("sprite%d" % self.z))
-		self.fadeIn(pad)
+#		self.fadeIn(pad)
 #		self.fadeout_old_sprites()
+
+		pwf_im = self.padded_window_fitted_image(
+			PIL.Image.open(self.image_file),
+			self.window_width, self.window_height, (0,0,0,255))
+		pwf_img.save('/tmp/iv64_tmp_pwf.png', 'PNG', )
+
+		factory = ImageGL.TextureFactory()
+		texture = factory.maketexture(pwf_im)
+
+#		pilDecoder = PILImageDecoder()
+#		pyg_im = pilDecoder.decode(pwf_im, 'no_file_name')
+
+		self.sprite = Sprite(texture)
 		self.sprites.append(sprite)
-		self.pads.append(pad)
-		self.fit_sprite_to_window()
 		self.z += 1
 
-		print("sprite.count=%d" % len(self.sprites))
-		print("names=%s" % self.children_names)
+#		print("sprite.count=%d" % len(self.sprites))
+#		print("names=%s" % self.children_names)
 
-	def fit_sprite_to_window(self):
-		if len(self.sprites) > 0 and self.window_width is not None:
-			for s in self.sprites:
-				scale = Util_Scaler.scaleToSize(
-						s.width, s.height,
-						self.window_width, self.window_height,
-						FitType.ScaleFitAspectFit
-					)
-				s.scale = scale[0]
-				s.x = int(s.width/2)
-				s.y = int(s.height/2)
-#				print(s)
+#	def fit_sprite_to_window(self):
+#		if len(self.sprites) > 0 and self.window_width is not None:
+#			for s in self.sprites:
+#				scale = Util_Scaler.scaleToSize(
+#						s.width, s.height,
+#						self.window_width, self.window_height,
+#						FitType.ScaleFitAspectFit
+#					)
+#				s.scale = scale[0]
+#				s.x = int(s.width/2)
+#				s.y = int(s.height/2)
+##				print(s)
+
+	def padded_window_fitted_image(self, pil_image, target_w, target_h, color):
+		orig_w = pil_image.size[0]
+		orig_h = pil_image.size[1]
+		fit = SizeFitting.scaleToSize(
+			orig_w, orig_h, target_w, target_h, FitType.ScaleFitAspectFill)
+		result = PIL.Image.new('RGBA', (target_w, target_h), color=(0,0,0,0))
+		result.paste(pil_image, 0, target_h, target_w, 0)
+		return result
+
+
+#		image =  PIL.Image.new('RGBA', (target_w, target_h), color)
+#		resized = pil_image.resize(
+#			(fit['result_w'], fit['result_h']), PIL.Image.BICUBIC)
+#		draw = PIL.ImageDraw.Draw(resized)
+#		if abs(fit['result_h'] - target_h) < 5: # assume horizontal expansion
+#			draw.rectangle([fit['result_w'], 0, target_w, target_h])
+#		else:
+#			draw.rectangle([fit['result_h'], 0, target_w, target_h])
+#		return resized
+
+
+#		return PIL.ImageChops.add(image, resized, scale=1, offset=0)
+
+#	@staticmethod
+#	def fit_to(orig_w, orig_h, target_w, target_h):
+#		scale = Util_Scaler.scaleToSize(
+#						orig_w, orig_h,
+#						target_w, target_h,
+#						FitType.ScaleFitAspectFit
+#					)
+#
+#
+#		if len(self.sprites) > 0 and self.window_width is not None:
+#			for s in self.sprites:
+#				scale = Util_Scaler.scaleToSize(
+#						s.width, s.height,
+#						self.window_width, self.window_height,
+#						FitType.ScaleFitAspectFit
+#					)
+#				s.scale = scale[0]
+#				s.x = int(s.width/2)
+#				s.y = int(s.height/2)
+##				print(s)
 
 	def fadeIn(self, sprite):
 		sprite.opacity = 0
