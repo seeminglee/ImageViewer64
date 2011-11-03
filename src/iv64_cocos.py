@@ -34,7 +34,7 @@ from pyglet.image.codecs.pil import PILImageDecoder
 from StringIO import StringIO
 from pyglet.image import SolidColorImagePattern
 from pyglet.gl import gl
-
+from random import randrange
 
 
 ### Exceptions ----------------------------------------------------------------
@@ -111,8 +111,8 @@ class SizeFitting(object):
 		target_aspect = target_w / target_h
 		orig_aspect = orig_w / orig_h
 
-		x_scale = 0
-		y_scale = 0
+		x_scale = 0.0
+		y_scale = 0.0
 
 		if fit_type is FitType.ScaleFitFull:
 			x_scale = target_w / orig_w
@@ -204,6 +204,8 @@ class ImageLayer(Layer):
 		self.fading = []
 		self.z = 10
 		self.pads = []
+		self.anchor = (0, 0)
+		self.transform_anchor = (0, 0)
 
 	def on_slideshow_model_update(self, model):
 		print("ImageLayer.on_slideshow_model_update")
@@ -230,25 +232,49 @@ class ImageLayer(Layer):
 				                         target_w, target_h,
 		                                 FitType.ScaleFitAspectFit)
 		imgsprite = Sprite(pyglet_img)
+		imgsprite.anchor = (0, 0)
+		imgsprite.transform_anchor = (0, 0)
 
 		bg_w = int(float(target_w) / xscale)
 		bg_h = int(float(target_h) / yscale)
 
 		background = SolidColorImagePattern(
-			color=(128, 0, 0, 255)
+			color=self.random_color
 		).create_image(width=bg_w, height=bg_h)
 
 		bgsprite = Sprite(background)
 		bgsprite.add(imgsprite, z=id, name="image%d" % id)
+		bgsprite.anchor = (0, 0)
+#		bgsprite.anchor = (dx/xscale*-4, dy/yscale*-4)
 		bgsprite.scale = xscale
-		bgsprite.x = result_w/2
-		bgsprite.y = result_h/2
 
 
 		self.add(bgsprite, z=id, name="spritelayer%d" % id)
 
 		bgsprite.opacity = 0
 		bgsprite.do( FadeIn(1) )
+
+		########## DEBUG
+		bg = bgsprite
+		lists = [ "orig_w result_w bg_w target_w xscale".split(" "),
+		          "orig_h result_h bg_h target_h yscale".split(" "),
+		          "bg.width bg.height bg.anchor bg.transform_anchor".split(" ")
+				]
+		debug = "id: %2d " %id
+		for list in lists:
+			debug += "\n"
+			for  key in list:
+				debug += "{k:>5}: {v:>4}  ".format(k=key, v=eval(key))
+		print debug
+
+
+	@property
+	def random_color(self):
+		r = randrange(128, 180, 1)
+		g = randrange(128, 180, 1)
+		b = randrange(240, 255, 1)
+		a = 255
+		return (r, g, b, a)
 
 	@property
 	def next_id(self):
