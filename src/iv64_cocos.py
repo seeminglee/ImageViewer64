@@ -17,6 +17,7 @@ from cocos.director import director
 from cocos.layer import Layer
 from cocos.layer import ColorLayer
 from cocos.scene import Scene
+from cocos.sprite import Sprite
 from cocos.text import Label
 from pyglet import event
 import cocos
@@ -42,6 +43,10 @@ class InvalidFolderError(ImageViewerError): pass
 
 
 ### Model Helper --------------------------------------------------------------
+def shell_quote(s):
+	return "'" + s.replace("'", "'\\''") + "'"
+
+
 class FileType(object):
 	"""small class used to store regular expression patterns to be used
 	in conjunction with the Foleer class"""
@@ -140,6 +145,8 @@ class ImageLayer(Layer):
 		self.texture = None
 		self.sprite = None
 		self.image_file = None
+		self.window_width = None
+		self.window_height = None
 
 	def on_slideshow_model_update(self, model):
 		print("ImageLayer.on_slideshow_model_update")
@@ -150,14 +157,25 @@ class ImageLayer(Layer):
 	def create_sprite(self):
 		print("ImageLayer.create_sprite()")
 
-		scale = Util_Scaler.scaleToSize(
-				self.texture.width, self.texture.height,
-				winsize.width, winsize.height,
-				FitType.ScaleFitAspectFit
+		self.image = pyglet.image.load(self.image_file)
+#		self.sprite = Sprite(self.image)
+#		self.sprite = Sprite(self.image_file)
+
+		scale = 1
+		if self.window_width is not None:
+			scale = Util_Scaler.scaleToSize(
+					self.image.width, self.image.height,
+					self.window_width, self.window_height,
+					FitType.ScaleFitAspectFit
+				)
+		self.sprite = Sprite(
+				self.image, scale=scale, anchor=(0,0)
 			)
-		self.sprite = cocos.sprite.Sprite(
-				self.image_file, scale=scale, anchor=(0,0)
-			)
+
+	def on_resize(self, width, height):
+		print("ImageLayer.on_resize()")
+		self.window_width = width
+		self.window_height = heightt
 
 	def on_key_press(self, symbol, modifiers):
 		print("ImageLayer.on_key_press")
@@ -281,6 +299,7 @@ class FileInfoLayer(Layer):
 class SlideshowModelUpdate(object):
 	def __init__(self):
 		pass
+
 
 
 
@@ -523,7 +542,7 @@ class SlideshowController(object):
 
 
 
-class SingleImageScene(cocos.scene.Scene):
+class SingleImageScene(Scene):
 
 	def __init__(self, *children):
 		"""Creates a Scene with layers and / or scenes."""
@@ -545,6 +564,7 @@ class Controller():
 		self.scene.add(bg,   name = "Layers.Background")
 		self.scene.add(img,  name = "Layers.Image")
 		self.scene.add(info, name = "Layers.Info")
+		self.scene.push_all_handlers()
 
 
 		self.slideshowController = SlideshowController(folder)
@@ -564,7 +584,8 @@ class Controller():
 
 
 def main():
-	controller = Controller('/Volumes/Proteus/virtualbox/_share/bru')
+	controller = Controller('/Users/sml/Pictures/test')
+#	controller = Controller('./test')
 	controller.run()
 
 
