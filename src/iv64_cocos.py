@@ -207,6 +207,7 @@ class ImageLayer(Layer):
 		self.anchor = (0, 0)
 		self.transform_anchor = (0, 0)
 
+
 	def on_slideshow_model_update(self, model):
 		print("ImageLayer.on_slideshow_model_update")
 		self.image_file = model.current_file
@@ -214,6 +215,10 @@ class ImageLayer(Layer):
 
 
 	def add_image_sprite(self):
+
+
+
+
 		print("ImageLayer.add_image_layer()")
 
 		pil = PIL.Image.open(self.image_file)
@@ -245,7 +250,6 @@ class ImageLayer(Layer):
 		bgsprite = Sprite(background)
 		bgsprite.add(imgsprite, z=id, name="image%d" % id)
 		bgsprite.anchor = (0, 0)
-#		bgsprite.anchor = (dx/xscale*-4, dy/yscale*-4)
 		bgsprite.scale = xscale
 
 
@@ -254,11 +258,19 @@ class ImageLayer(Layer):
 		bgsprite.opacity = 0
 		bgsprite.do( FadeIn(1) )
 
+		## !!! CENTERING !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+		self.position = (target_w/2, target_h/2)
+		imgsprite.position = (-(target_w-result_w)/2/xscale, -(target_h-result_h)/2/yscale )
+
+		## !!!!!!!!!!!!!!
+		##############
+
 		########## DEBUG
 		bg = bgsprite
 		lists = [ "orig_w result_w bg_w target_w xscale".split(" "),
 		          "orig_h result_h bg_h target_h yscale".split(" "),
-		          "bg.width bg.height bg.anchor bg.transform_anchor".split(" ")
+		          "bg.width bg.height bg.anchor bg.transform_anchor".split(" "),
+		          "self.position self.get_local_transform() self.get_world_transform()".split(" ")
 				]
 		debug = "id: %2d " %id
 		for list in lists:
@@ -266,6 +278,10 @@ class ImageLayer(Layer):
 			for  key in list:
 				debug += "{k:>5}: {v:>4}  ".format(k=key, v=eval(key))
 		print debug
+
+
+
+
 
 
 	@property
