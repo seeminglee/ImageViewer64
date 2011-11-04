@@ -5,7 +5,7 @@ lab/*
 bin/*
 
 # SDK Examples
-examplees/*
+examples/*
 
 # OSX
 .DS_Store
