@@ -1,0 +1,14 @@
+# Experimental
+lab/*
+
+# Compiled Apps
+bin/*
+
+# SDK Examples
+examplees/*
+
+# OSX
+.DS_Store
+
+# PyCharm project
+.idea/*
