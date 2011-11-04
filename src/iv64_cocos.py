@@ -22,13 +22,14 @@ from cocos.text import Label
 from cocos.actions import CallFunc
 from cocos.actions import FadeIn
 from cocos.actions import FadeOut
+from cocos.actions import Delay
 import PIL
 from PIL import Image
 import cocos
 import pyglet
 from pyglet.image import SolidColorImagePattern
 from random import randrange
-
+from cocos.actions import IntervalAction
 
 ### Exceptions ----------------------------------------------------------------
 
@@ -479,11 +480,14 @@ class SlideshowModel(pyglet.event.EventDispatcher):
 		# function repeated so if the system is backed up it won't create
 		# additional problems
 		self._playing = True
+		self.ssPlayback.play()
+
 
 	def stop(self):
 		"""Stop animation"""
 		pyglet.clock.unschedule(self.play_next)
 		self._playing = False
+#		self.ssPlayback.top()
 
 	def play_next(self):
 		"""auto advance to next"""
@@ -591,8 +595,9 @@ class SlideshowController(object):
 
 	def __init__(self, folder):
 		"""Create a controller capable of handling the slidehow user inputs"""
-		super(SlideshowController, self).__init__()
+#		super(SlideshowController, self).__init__()
 		self.model = SlideshowModel(folder)
+#		self.ssPlayback = SlideshowPlayback(model=self.model, duration=1.5)
 
 
 	def on_key_press(self, symbol, modifiers):
@@ -604,12 +609,23 @@ class SlideshowController(object):
 
 			if symbol == pyglet.window.key.RIGHT:
 				self.model.next()
+
+				# temporary hack
 			elif symbol == pyglet.window.key.LEFT:
 				self.model.prev()
+
+
 
 		# slideshow start/stop
 		elif symbol in [pyglet.window.key.S, pyglet.window.key.SPACE]:
 			self.model.toggle_play()
+			# temporary hack
+
+			def modelNextImage():
+				self.model.next()
+
+			self.do( Repeat( CallFunc( modelNextImage ) + Delay (1.5) ) )
+
 
 		# window resizing
 		elif symbol in [pyglet.window.key.BRACKETLEFT,
@@ -644,8 +660,31 @@ class SlideshowController(object):
 			self.model.push_handlers(obj)
 
 
-	def start_model(self)
-		self.model.next():
+	def start_model(self):
+		self.model.next()
+
+
+class SlideshowPlayback( IntervalAction ):
+	def init(self, mode,  duration=3):
+		super(SlideshowPlayback, self).__init__()
+		self.duration = duration
+		self.model = model
+
+	def update(self, *args, **kwargs):
+		self.model.next()
+
+	def set_duration(self, t):
+		self.stop()
+		if t < 0.5:
+			self.duration = 0.5
+		elif t > 10:
+			self.duration = 10
+		else:
+			self.duration = t
+		self.start()
+
+
+
 
 
 
@@ -696,7 +735,7 @@ class Controller():
 
 
 
-def main(sys.argv):
+def main():
 	controller = Controller('/Volumes/Proteus/virtualbox/_share/bru')
 	controller.run()
 
