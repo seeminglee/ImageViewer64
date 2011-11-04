@@ -203,9 +203,9 @@ class ImageLayer(Layer):
 		self.sprites = []
 		self.fading = []
 		self.z = 10
-		self.pads = []
 		self.anchor = (0, 0)
 		self.transform_anchor = (0, 0)
+		self.layers=[]
 
 
 	def on_slideshow_model_update(self, model):
@@ -215,9 +215,6 @@ class ImageLayer(Layer):
 
 
 	def add_image_sprite(self):
-
-
-
 
 		print("ImageLayer.add_image_layer()")
 
@@ -238,13 +235,13 @@ class ImageLayer(Layer):
 		                                 FitType.ScaleFitAspectFit)
 		imgsprite = Sprite(pyglet_img)
 		imgsprite.anchor = (0, 0)
-		imgsprite.transform_anchor = (0, 0)
+		imgsprite.transform_anchor = (result_w/2, result_h/2)
 
 		bg_w = int(float(target_w) / xscale)
 		bg_h = int(float(target_h) / yscale)
 
 		background = SolidColorImagePattern(
-			color=self.random_color
+			color=self.color_black
 		).create_image(width=bg_w, height=bg_h)
 
 		bgsprite = Sprite(background)
@@ -255,12 +252,14 @@ class ImageLayer(Layer):
 
 		self.add(bgsprite, z=id, name="spritelayer%d" % id)
 
-		bgsprite.opacity = 0
-		bgsprite.do( FadeIn(1) )
+
+		self.animate(bgsprite, imgsprite)
+
 
 		## !!! CENTERING !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 		self.position = (target_w/2, target_h/2)
-		imgsprite.position = (-(target_w-result_w)/2/xscale, -(target_h-result_h)/2/yscale )
+		## Remove the lign below to center on display (as oppposed to anchoing at (0,0)
+#		imgsprite.position = (-(target_w-result_w)/2/xscale, -(target_h-result_h)/2/yscale )
 
 		## !!!!!!!!!!!!!!
 		##############
@@ -281,7 +280,27 @@ class ImageLayer(Layer):
 
 
 
+	def animate(self, bg, img):
+		self.layers.append([bg, img])
+		bg.opacity = 0
+		img.opacity = 0
+		img.do ( FadeIn(0.5))
+		bg.do ( FadeIn(1 ))
 
+		qlen = len(self.layers)
+
+		if qlen> 1:
+			layer = self.layers[-2]
+			layer[0].do ( FadeOut(1) + CallFunc(self.kill_nodes))
+			layer[1].do ( FadeOut(1) )
+
+	def kill_nodes(self):
+		copy = self.layers[:]
+		self.layers = self.layers[-3:] # remove everything except last two
+
+		for layer in copy[:-3]:
+			for elem in layer:
+				elem.kill()
 
 
 	@property
@@ -291,6 +310,10 @@ class ImageLayer(Layer):
 		b = randrange(240, 255, 1)
 		a = 255
 		return (r, g, b, a)
+
+	@property
+	def color_black(selfself):
+		return (0, 0, 0, 255)
 
 	@property
 	def next_id(self):
