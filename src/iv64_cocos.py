@@ -20,20 +20,13 @@ from cocos.scene import Scene
 from cocos.sprite import Sprite
 from cocos.text import Label
 from cocos.actions import CallFunc
-from cocos.actions import CallFuncS
 from cocos.actions import FadeIn
 from cocos.actions import FadeOut
 import PIL
 from PIL import Image
-from PIL import ImageDraw
-from PIL import ImageChops
 import cocos
 import pyglet
-from pyglet.image.codecs.pil import PILImageDecoder
-#from cStringIO import StringIO
-from StringIO import StringIO
 from pyglet.image import SolidColorImagePattern
-from pyglet.gl import gl
 from random import randrange
 
 
@@ -651,6 +644,10 @@ class SlideshowController(object):
 			self.model.push_handlers(obj)
 
 
+	def start_model(self)
+		self.model.next():
+
+
 
 class SingleImageScene(Scene):
 
@@ -683,7 +680,9 @@ class Controller():
 			[bg, img, info]
 		)
 		director.window.push_handlers(self.slideshowController)
+		director.window.push_handlers(bg)
 		director.window.push_handlers(img)
+		director.window.push_handlers(info)
 
 
 		print ("INIT >>> SingleImageScene.init()")
@@ -692,9 +691,12 @@ class Controller():
 
 	def run(self):
 		director.run(self.scene)
+		self.slideshowController.start_model()
 
 
-def main():
+
+
+def main(sys.argv):
 	controller = Controller('/Volumes/Proteus/virtualbox/_share/bru')
 	controller.run()
 
