@@ -253,7 +253,7 @@ class Folder(object):
 		return self._abspath([f for f in self.allfiles if FileType.is_gif.search(f)])
 
 	def pngs(self):
-		"""Return list of gifs only"""
+		"""Return list of pngs only"""
 		return self._abspath([f for f in self.allfiles if FileType.is_png.search(f)])
 
 	def _abspath(self, files=None):
